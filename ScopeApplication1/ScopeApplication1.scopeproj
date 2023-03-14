@@ -1,0 +1,48 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>98235508-c0ea-4a68-96d0-94f52925d2fe</ProjectGuid>
+    <OutputType>File</OutputType>
+    <AssemblyName>Algebra.xml</AssemblyName>
+    <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
+    <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
+    <Name>ScopeApplication1</Name>
+    <RootNamespace>ScopeApplication1</RootNamespace>
+    <VCSelectionInProjectProperty>&lt;Use Current VC in VC Selector&gt;</VCSelectionInProjectProperty>
+    <CosmosRuntimeVersion>Default</CosmosRuntimeVersion>
+    <ScopePath>%24(SCRIPT_DIR);%24(CLUSTER_ROOT);%24(SCOPE_DIR);%24(PROJECT_DIR)</ScopePath>
+    <InputStreamSearchPath>%24(PROJECT_DIR);%24(SCRIPT_DIR);%24(CLUSTER_ROOT)</InputStreamSearchPath>
+    <OutputStreamPath>%24(PROJECT_DIR)</OutputStreamPath>
+    <VertexDebugSolution>false</VertexDebugSolution>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <OutputPath>bin\Debug\</OutputPath>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugSymbols>false</DebugSymbols>
+    <OutputPath>bin\Release\</OutputPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <Script Include="New.script">
+      <RemoveUselessParameters>False</RemoveUselessParameters>
+      <ScopeOldParameters>Day1=(\"2017-3-3\"),BeginHour=(13),EndHour1=(15),Day2=(\"\"),EndHour2=(15),ResultDirectory=(\"users/liagao/fltResult\"),ControlFlight=(\"flt46:localentitymigcf\"),TreatmentFlight=(\"flt46:localentitymig\"),FlightPrefix=(\"flt46\"),Environment=(\"XAP-Prod-Bn1\"),CommonVariant=(\"Mkt:EnUs; TrafficType:Prod\"),NodePrefix=(\"APlusWithNPH;WebAnswer\"),WorkFlow=(\"Xap.BingFirstPageResults\")</ScopeOldParameters>
+      <ScopeClusterParameters>Day1=(\"2017-3-3\"),BeginHour=(13),EndHour1=(15),Day2=(\"\"),EndHour2=(15),ResultDirectory=(\"users/liagao/fltResult\"),ControlFlight=(\"flt46:localentitymigcf\"),TreatmentFlight=(\"flt46:localentitymig\"),FlightPrefix=(\"flt46\"),Environment=(\"XAP-Prod-Bn1\"),CommonVariant=(\"Mkt:EnUs; TrafficType:Prod\"),NodePrefix=(\"APlusWithNPH;WebAnswer\"),WorkFlow=(\"Xap.BingFirstPageResults\")</ScopeClusterParameters>
+    </Script>
+    <Script Include="Scope.script" />
+    <Script Include="Scope1.script" />
+    <ScriptCode Include="New.script.cs">
+      <DependentUpon>New.script</DependentUpon>
+    </ScriptCode>
+    <ScriptCode Include="Scope.script.cs">
+      <DependentUpon>Scope.script</DependentUpon>
+    </ScriptCode>
+    <ScriptCode Include="Scope1.script.cs">
+      <DependentUpon>Scope1.script</DependentUpon>
+    </ScriptCode>
+  </ItemGroup>
+  <Import Project="$(AppData)\Microsoft\ScopeStudio\MsBuild\1.0\Scope.targets" />
+</Project>

@@ -1,0 +1,1036 @@
+﻿/***************************************************************************
+    Script to process overall data
+***************************************************************************/
+
+REFERENCE "/shares/searchDM.upload/SearchXAPLogs/BIN/Microsoft.Bing.Xap.QueryLog.dll";
+REFERENCE "/shares/searchDM.upload/SearchXAPLogs/BIN/Microsoft.Bing.Xap.QueryLogExtractor.dll";
+REFERENCE "/shares/searchDM.upload/SearchXAPLogs/BIN/Newtonsoft.Json.dll";
+REFERENCE "/projects/searchXAP/Data/Telemetry/bin/QuickHistogram/Microsoft.XAP.Telemetry.Histogram.dll";
+
+USING Microsoft.Bing.Xap.QueryLog;
+USING Microsoft.XAP.Telemetry.Histogram;
+
+#DECLARE TodayDateTime DateTime = DateTime.Parse("2017-03-06");
+#DECLARE HourInt int = Convert.ToInt32("10");
+#DECLARE HourlyDateTime DateTime = new DateTime(@TodayDateTime.Year, @TodayDateTime.Month, @TodayDateTime.Day, @HourInt, 0, 0);
+#DECLARE OverallPercentileFilePath string = string.Format("QueryLatency_{0}.log", @HourlyDateTime.ToString("yyyyMMdd_HH"));
+
+#DECLARE inputStreamBing string = @"/shares/searchDM.upload/SearchXAPLogs/PROD/?date=(2017-03-06)&hour=10";
+#DECLARE inputStreamYahoo string = @"/shares/searchDM.upload/YahooXAPLogs/PROD/?date=(2017-03-06)&hour=10";
+
+/*****************************************************************************
+    Plugin processing declaration
+*****************************************************************************/
+#DECLARE pluginDataResultStream string = @"/projects/searchXAP/Data/Telemetry/HourlyPluginData/?date=(2017-03-06)&hour=10";
+#DECLARE CancelationCountResultStream string = @"/projects/searchXAP/Data/Telemetry/HourlyCancelationCount/?date=(2017-03-06)&hour=10";
+
+/*****************************************************************************
+    Query processing declaration
+*****************************************************************************/
+#DECLARE queryResultStream string = @"/projects/searchXAP/Data/Telemetry/HourlyQueryData/?date=(2017-03-06)&hour=10";
+
+/*****************************************************************************
+    Fork raw logs for A.BFPR
+*****************************************************************************/
+#DECLARE rawLogABFPRFork string = @"/projects/searchXAP/Data/Telemetry/SearchXAPLogs/ABFPR/HourlyRawLog/?date=(2017-03-06)&hour=10";
+
+/*****************************************************************************
+    Query, plugin and node data
+*****************************************************************************/
+AllRawLog =
+    EXTRACT EnvironmentName : string,
+            Experiment : string,
+            ExperimentVersion : string,
+            Workflow : string,
+            WorkflowVersion : string,
+            CommonVariant : string,
+            FormattedFlights : string,
+            QueryId : string,
+            QueryLatency : long,
+            SendStartMS : long,
+            ReceiveEndMS : long,
+            AHOverheadMS : long,
+            StartAHOverheadMS : long,
+            EndAHOverheadMS : long,
+            Cost : long,
+            NodesData : QueryNodesData,
+            RawRecord:string
+    FROM @inputStreamBing,
+         @inputStreamYahoo
+    USING XapDataExtractor("flt,flt1,flt2,flt3,flt4,flt5,flt6,flt7,flt8,flt9,flt10,flt11,flt12,flt13,flt14,flt15,flt16,flt17,flt18,flt19,flt20,flt21,flt22,flt23,flt24,flt25,flt26,flt27,flt28,flt29,flt30,flt31,flt32,flt33,flt34,flt35,flt36,flt37,flt38,flt39,flt40,flt41,flt42,flt43,flt44,flt45,flt46,flt47,flt48,flt49,flt50,flt51,flt52,flt53,flt54,flt55,flt56,flt57,flt58,flt59,flt60,release,ramp,ramp1,ramp2,ramp3,cert1,cert2", ",");
+    
+ABFPRFork=
+   SELECT RawRecord
+   FROM AllRawLog
+   WHERE RawRecord != string.Empty;
+
+OUTPUT TO @rawLogABFPRFork
+WITH STREAMEXPIRY "30"; 
+
+/*****************************************************************************
+    Query data processing
+*****************************************************************************/
+DataWithVariant =
+    SELECT EnvironmentName,
+           Workflow,
+           CommonVariant,
+           QueryLatency AS WorkflowLatency,
+           SendStartMS - ReceiveEndMS AS WorkflowInternalLatency,
+           QueryLatency - SendStartMS AS WorkflowSendTime,
+           ReceiveEndMS AS WorkflowReceiveTime,
+           Utility.NomalizeAHOverhead(AHOverheadMS) AS AHOverheadMS,
+           Utility.NomalizeAHOverhead(StartAHOverheadMS) AS StartAHOverheadMS,
+           Utility.NomalizeAHOverhead(EndAHOverheadMS) AS EndAHOverheadMS,
+           WorkflowVersion,
+           ExperimentVersion,
+           FormattedFlights,
+           Cost
+    FROM AllRawLog
+    WHERE Experiment == "Prod" AND
+          QueryLatency >= 0 AND
+          QueryLatency < 10000 AND
+          SendStartMS >= 0 AND
+          SendStartMS < 10000 AND
+          ReceiveEndMS >= 0 AND
+          ReceiveEndMS < 10000 AND
+          Cost >= 0;
+
+DataWithFlightArray =
+    SELECT EnvironmentName,
+           Workflow,
+           CommonVariant,
+           WorkflowLatency,
+           WorkflowInternalLatency,
+           WorkflowSendTime,
+           WorkflowReceiveTime,
+           AHOverheadMS,
+           StartAHOverheadMS,
+           EndAHOverheadMS,
+           WorkflowVersion,
+           ExperimentVersion,
+           FormattedFlights.Split(',') AS Flights,
+           Cost
+    FROM DataWithVariant;
+
+DataWithIndividualFlight =
+    SELECT EnvironmentName,
+           Workflow,
+           CommonVariant,
+           WorkflowLatency,
+           WorkflowInternalLatency,
+           WorkflowSendTime,
+           WorkflowReceiveTime,
+           AHOverheadMS,
+           StartAHOverheadMS,
+           EndAHOverheadMS,
+           WorkflowVersion,
+           ExperimentVersion,
+           Flight,
+           Cost
+    FROM DataWithFlightArray
+         CROSS APPLY
+             Flights AS Flight
+    WHERE Flight.IndexOf(":D-") < 0 AND Flight.IndexOf(":DEFAULT-") < 0 AND Flight.Length <= 500;
+
+HistogramAgg =
+    SELECT EnvironmentName,
+           Workflow,
+           CommonVariant,
+           WorkflowVersion,
+           ExperimentVersion,
+           "<All>" AS Flight,
+           AVG(WorkflowSendTime) AS AvgWorkflowSendTime,
+           AVG(WorkflowReceiveTime) AS AvgWorkflowReceiveTime,
+           COUNT( * ) AS QueryCount,
+           BuildHistogram(BitConverter.GetBytes((double) WorkflowLatency)) AS WorkflowLatencyHistogram,
+           BuildHistogram(BitConverter.GetBytes((double) WorkflowInternalLatency)) AS WorkflowInternalLatencyHistogram,
+           BuildHistogram(BitConverter.GetBytes((double) AHOverheadMS)) AS AHOverheadHistogram,
+           BuildHistogram(BitConverter.GetBytes((double)StartAHOverheadMS)) AS StartAHOverheadHistogram,
+           BuildHistogram(BitConverter.GetBytes((double)EndAHOverheadMS)) AS EndAHOverheadHistogram,
+           AVG(Cost) AS AvgWorkflowCost
+    FROM DataWithVariant
+    UNION ALL
+    SELECT EnvironmentName,
+           Workflow,
+           CommonVariant,
+           WorkflowVersion,
+           ExperimentVersion,
+           Flight,
+           AVG(WorkflowSendTime) AS AvgWorkflowSendTime,
+           AVG(WorkflowReceiveTime) AS AvgWorkflowReceiveTime,
+           COUNT( * ) AS QueryCount,
+           BuildHistogram(BitConverter.GetBytes((double) WorkflowLatency)) AS WorkflowLatencyHistogram,
+           BuildHistogram(BitConverter.GetBytes((double) WorkflowInternalLatency)) AS WorkflowInternalLatencyHistogram,
+           BuildHistogram(BitConverter.GetBytes((double) AHOverheadMS)) AS AHOverheadHistogram,
+           BuildHistogram(BitConverter.GetBytes((double)StartAHOverheadMS)) AS StartAHOverheadHistogram,
+           BuildHistogram(BitConverter.GetBytes((double)EndAHOverheadMS)) AS EndAHOverheadHistogram,
+           AVG(Cost) AS AvgWorkflowCost
+    FROM DataWithIndividualFlight;
+
+ /*
+  * Merge TrafficType:Premium and TrafficType:NonPremium AS TrafficType:Prod
+  */
+HistogramAggWithProd = 
+    SELECT EnvironmentName,
+           Workflow,
+           Utility.MergeProdVariant(CommonVariant) AS CommonVariant,
+           WorkflowVersion,
+           ExperimentVersion,
+           Flight,
+           SUM(AvgWorkflowSendTime*QueryCount)/SUM(QueryCount) AS AvgWorkflowSendTime,
+           SUM(AvgWorkflowReceiveTime*QueryCount)/SUM(QueryCount) AS AvgWorkflowReceiveTime,
+           SUM(QueryCount) AS QueryCount,
+           BuildHistogram(QuickHistogram.Parse(WorkflowLatencyHistogram).ToBytes()) AS WorkflowLatencyHistogram,
+           BuildHistogram(QuickHistogram.Parse(WorkflowInternalLatencyHistogram).ToBytes()) AS WorkflowInternalLatencyHistogram,
+           BuildHistogram(QuickHistogram.Parse(AHOverheadHistogram).ToBytes()) AS AHOverheadHistogram,
+           BuildHistogram(QuickHistogram.Parse(StartAHOverheadHistogram).ToBytes()) AS StartAHOverheadHistogram,
+           BuildHistogram(QuickHistogram.Parse(EndAHOverheadHistogram).ToBytes()) AS EndAHOverheadHistogram,
+           SUM(AvgWorkflowCost*QueryCount)/SUM(QueryCount) AS AvgWorkflowCost
+    FROM HistogramAgg
+    WHERE 
+           HistogramAgg.CommonVariant == "Mkt:EnUs; TrafficType:ProdNonPremium" OR
+           HistogramAgg.CommonVariant == "Mkt:EnUs; TrafficType:Premium" OR
+           HistogramAgg.CommonVariant == "Mkt:Others; TrafficType:ProdNonPremium" OR
+           HistogramAgg.CommonVariant == "Mkt:Others; TrafficType:Premium";
+           
+ 
+QueryResult =
+    SELECT @HourlyDateTime AS LogDate,
+           EnvironmentName,  
+           Workflow, 
+           CommonVariant, 
+           WorkflowVersion,
+           ExperimentVersion,
+           Flight,
+           AvgWorkflowSendTime,
+           AvgWorkflowReceiveTime,
+           QuickHistogram.Parse(WorkflowLatencyHistogram).ToString() AS WorkflowLatencyHistogramAgg,
+           QuickHistogram.Parse(WorkflowInternalLatencyHistogram).ToString() AS WorkflowInternalLatencyHistogramAgg, 
+           QuickHistogram.Parse(AHOverheadHistogram).ToString() AS AHOverheadHistogramAgg,
+           QuickHistogram.Parse(StartAHOverheadHistogram).ToString() AS StartAHOverheadHistogramAgg, 
+           QuickHistogram.Parse(EndAHOverheadHistogram).ToString() AS EndAHOverheadHistogramAgg, 
+           QueryCount,
+           QuickHistogram.Parse(WorkflowLatencyHistogram).GetMean(0) AS AvgTotalLatency,
+           QuickHistogram.Parse(WorkflowLatencyHistogram).GetPercentile(25, 0) AS P25TotalLatency,
+           QuickHistogram.Parse(WorkflowLatencyHistogram).GetPercentile(50, 0) AS P50TotalLatency,
+           QuickHistogram.Parse(WorkflowLatencyHistogram).GetPercentile(75, 0) AS P75TotalLatency,
+           QuickHistogram.Parse(WorkflowLatencyHistogram).GetPercentile(90, 0) AS P90TotalLatency,
+           QuickHistogram.Parse(WorkflowLatencyHistogram).GetPercentile(95, 0) AS P95TotalLatency,
+           QuickHistogram.Parse(WorkflowLatencyHistogram).GetPercentile(99, 0) AS P99TotalLatency,
+           QuickHistogram.Parse(WorkflowLatencyHistogram).GetPercentile(99.9, 0) AS P999TotalLatency,
+           QuickHistogram.Parse(WorkflowInternalLatencyHistogram).GetMean(0) AS AvgInternalLatency,
+           QuickHistogram.Parse(WorkflowInternalLatencyHistogram).GetPercentile(25, 0) AS P25InternalLatency,
+           QuickHistogram.Parse(WorkflowInternalLatencyHistogram).GetPercentile(50, 0) AS P50InternalLatency,
+           QuickHistogram.Parse(WorkflowInternalLatencyHistogram).GetPercentile(75, 0) AS P75InternalLatency,
+           QuickHistogram.Parse(WorkflowInternalLatencyHistogram).GetPercentile(90, 0) AS P90InternalLatency,
+           QuickHistogram.Parse(WorkflowInternalLatencyHistogram).GetPercentile(95, 0) AS P95InternalLatency,
+           QuickHistogram.Parse(WorkflowInternalLatencyHistogram).GetPercentile(99, 0) AS P99InternalLatency,
+           QuickHistogram.Parse(WorkflowInternalLatencyHistogram).GetPercentile(99.9, 0) AS P999InternalLatency,
+           QuickHistogram.Parse(AHOverheadHistogram).GetMean(0) AS AvgAHOverhead,
+           QuickHistogram.Parse(AHOverheadHistogram).GetPercentile(95, 0) AS P95AHOverhead,
+           AvgWorkflowCost,
+           QuickHistogram.Parse(StartAHOverheadHistogram).GetMean(0) AS AvgStartAHOverhead,
+           QuickHistogram.Parse(StartAHOverheadHistogram).GetPercentile(95, 0) AS P95StartAHOverhead,
+           QuickHistogram.Parse(EndAHOverheadHistogram).GetMean(0) AS AvgEndAHOverhead,
+           QuickHistogram.Parse(EndAHOverheadHistogram).GetPercentile(95, 0) AS P95EndAHOverhead
+    FROM HistogramAgg   
+    WHERE 
+           CommonVariant != "Mkt:EnUs; TrafficType:ProdNonPremium" AND
+           CommonVariant != "Mkt:Others; TrafficType:ProdNonPremium"
+    UNION ALL
+    SELECT @HourlyDateTime AS LogDate,
+           EnvironmentName,  
+           Workflow, 
+           CommonVariant, 
+           WorkflowVersion,
+           ExperimentVersion,
+           Flight,
+           (double?)AvgWorkflowSendTime AS AvgWorkflowSendTime,
+           (double?)AvgWorkflowReceiveTime AS AvgWorkflowReceiveTime,
+           QuickHistogram.Parse(WorkflowLatencyHistogram).ToString() AS WorkflowLatencyHistogramAgg,
+           QuickHistogram.Parse(WorkflowInternalLatencyHistogram).ToString() AS WorkflowInternalLatencyHistogramAgg, 
+           QuickHistogram.Parse(AHOverheadHistogram).ToString() AS AHOverheadHistogramAgg,
+           QuickHistogram.Parse(StartAHOverheadHistogram).ToString() AS StartAHOverheadHistogramAgg, 
+           QuickHistogram.Parse(EndAHOverheadHistogram).ToString() AS EndAHOverheadHistogramAgg, 
+           QueryCount,
+           QuickHistogram.Parse(WorkflowLatencyHistogram).GetMean(0) AS AvgTotalLatency,
+           QuickHistogram.Parse(WorkflowLatencyHistogram).GetPercentile(25, 0) AS P25TotalLatency,
+           QuickHistogram.Parse(WorkflowLatencyHistogram).GetPercentile(50, 0) AS P50TotalLatency,
+           QuickHistogram.Parse(WorkflowLatencyHistogram).GetPercentile(75, 0) AS P75TotalLatency,
+           QuickHistogram.Parse(WorkflowLatencyHistogram).GetPercentile(90, 0) AS P90TotalLatency,
+           QuickHistogram.Parse(WorkflowLatencyHistogram).GetPercentile(95, 0) AS P95TotalLatency,
+           QuickHistogram.Parse(WorkflowLatencyHistogram).GetPercentile(99, 0) AS P99TotalLatency,
+           QuickHistogram.Parse(WorkflowLatencyHistogram).GetPercentile(99.9, 0) AS P999TotalLatency,
+           QuickHistogram.Parse(WorkflowInternalLatencyHistogram).GetMean(0) AS AvgInternalLatency,
+           QuickHistogram.Parse(WorkflowInternalLatencyHistogram).GetPercentile(25, 0) AS P25InternalLatency,
+           QuickHistogram.Parse(WorkflowInternalLatencyHistogram).GetPercentile(50, 0) AS P50InternalLatency,
+           QuickHistogram.Parse(WorkflowInternalLatencyHistogram).GetPercentile(75, 0) AS P75InternalLatency,
+           QuickHistogram.Parse(WorkflowInternalLatencyHistogram).GetPercentile(90, 0) AS P90InternalLatency,
+           QuickHistogram.Parse(WorkflowInternalLatencyHistogram).GetPercentile(95, 0) AS P95InternalLatency,
+           QuickHistogram.Parse(WorkflowInternalLatencyHistogram).GetPercentile(99, 0) AS P99InternalLatency,
+           QuickHistogram.Parse(WorkflowInternalLatencyHistogram).GetPercentile(99.9, 0) AS P999InternalLatency,
+           QuickHistogram.Parse(AHOverheadHistogram).GetMean(0) AS AvgAHOverhead,
+           QuickHistogram.Parse(AHOverheadHistogram).GetPercentile(95, 0) AS P95AHOverhead,
+           (double?)AvgWorkflowCost AS AvgWorkflowCost,
+           QuickHistogram.Parse(StartAHOverheadHistogram).GetMean(0) AS AvgStartAHOverhead,
+           QuickHistogram.Parse(StartAHOverheadHistogram).GetPercentile(95, 0) AS P95StartAHOverhead,
+           QuickHistogram.Parse(EndAHOverheadHistogram).GetMean(0) AS AvgEndAHOverhead,
+           QuickHistogram.Parse(EndAHOverheadHistogram).GetPercentile(95, 0) AS P95EndAHOverhead
+     FROM HistogramAggWithProd;
+
+OUTPUT QueryResult
+TO @queryResultStream
+WITH STREAMEXPIRY "365";
+
+HistogramAggOverall =
+    SELECT EnvironmentName,
+           Workflow,
+           CommonVariant,
+           BuildHistogram(BitConverter.GetBytes((double) WorkflowLatency)) AS WorkflowLatencyHistogram
+    FROM DataWithVariant
+    WHERE CommonVariant != "NonPremiumFull" AND
+          CommonVariant != "Mkt:Others; TrafficType:Others";
+
+QueryResultOverall =
+    SELECT EnvironmentName,
+           Workflow,
+           CommonVariant,
+           QuickHistogram.Parse(WorkflowLatencyHistogram).GetPercentile(89.6, 0) AS P90,
+           QuickHistogram.Parse(WorkflowLatencyHistogram).GetPercentile(95, 0) AS P95,
+           QuickHistogram.Parse(WorkflowLatencyHistogram).GetPercentile(98.6, 0) AS P99
+    FROM HistogramAggOverall;
+
+/*****************************************************************************
+    Plugin data processing
+*****************************************************************************/
+AllValidRawLog =
+    SELECT EnvironmentName,
+           Workflow,
+           CommonVariant,
+           QueryId,
+           NodesData
+    FROM AllRawLog
+    WHERE !string.IsNullOrEmpty(Workflow) AND
+          !string.IsNullOrEmpty(EnvironmentName) AND
+          Workflow.Length <= 200 AND
+          EnvironmentName.Length < 50 AND
+          CommonVariant != "NonPremiumFull" AND
+          CommonVariant != "Mkt:Others; TrafficType:Others";
+
+AllRawLogWithNodesData =
+    PROCESS AllValidRawLog
+    USING QueryNodesDataProcessor
+    HAVING !string.IsNullOrEmpty(Plugin) AND
+           !string.IsNullOrEmpty(Node) AND
+           Plugin.Length <= 500 AND
+           Node.Length <= 500;
+
+[ROWCOUNT=10]
+CancelationCountResult =
+    SELECT EnvironmentName,
+           Node,
+           Plugin,
+           Workflow,
+           COUNT( * ) AS CancelationCount
+    FROM AllRawLogWithNodesData
+    WHERE Canceled == true;
+
+[SKEWJOIN=(SKEW=FROMLEFT,REPARTITION=FULLJOIN)]
+[LOWDISTINCTNESS(EnvironmentName,Workflow,CommonVariant,Cached,Failed,InCriticalPath,ImpactedByGC,InP95,TimedOut,RemoteLatency,RemoteRequestSize,RemoteResponseSize,LegacyStatusCode)]
+AllRawLogFinished =
+    SELECT AllRawLogWithNodesData.EnvironmentName,
+           AllRawLogWithNodesData.Workflow,
+           AllRawLogWithNodesData.CommonVariant,
+           Cached,
+           Failed,
+           InCriticalPath,
+           ImpactedByGC,
+           ((P90 <= TotalLatency && TotalLatency <= P99) ? true : false) AS InP95,
+           TimedOut,
+           CoreTimeMicroSec,
+           Latency,
+           RemoteLatency,
+           RemoteRequestSize,
+           RemoteResponseSize,
+           StartTime,
+           LegacyStatusCode,
+           Node,
+           Plugin,
+           QueryId
+    FROM AllRawLogWithNodesData
+         INNER JOIN
+             QueryResultOverall
+         ON AllRawLogWithNodesData.EnvironmentName == QueryResultOverall.EnvironmentName AND
+            AllRawLogWithNodesData.Workflow == QueryResultOverall.Workflow AND
+            AllRawLogWithNodesData.CommonVariant == QueryResultOverall.CommonVariant
+    WHERE Finished == true;
+
+PluginDataAgg =
+    SELECT EnvironmentName,
+           Workflow,
+           CommonVariant,
+           Cached,
+           Failed,
+           InCriticalPath,
+           InP95,
+           TimedOut,
+           BuildHistogram(BitConverter.GetBytes((double) Latency)) AS LatencyAggregateData,
+           BuildHistogram(BitConverter.GetBytes(CoreTimeMicroSec > 0? Math.Round(CoreTimeMicroSec / 100.0) * 100 : CoreTimeMicroSec * 1.0)) AS CoreTimeAggregateData,
+           AVG(RemoteLatency) AS AvgRemoteLatency,
+           AVG(RemoteRequestSize) AS AvgReqSize,
+           AVG(RemoteResponseSize) AS AvgResSize,
+           AVG(StartTime) AS AvgStartTime,
+           LegacyStatusCode,
+           Node,
+           Plugin,
+           COUNT( * ) AS LogCount,
+           SUM(ImpactedByGC? 1 : 0) AS LogCountOfImpactedByGC
+    FROM AllRawLogFinished;
+    
+PluginDataAggWithProd =
+    SELECT EnvironmentName,
+           Workflow,
+           Utility.MergeProdVariant(CommonVariant) AS CommonVariant,
+           Cached,
+           Failed,
+           InCriticalPath,
+           InP95,
+           TimedOut,
+           BuildHistogram(QuickHistogram.Parse(LatencyAggregateData).ToBytes()) AS LatencyAggregateData,
+           BuildHistogram(QuickHistogram.Parse(CoreTimeAggregateData).ToBytes()) AS CoreTimeAggregateData,
+           SUM(AvgRemoteLatency*LogCount)/SUM(LogCount)  AS AvgRemoteLatency,
+           SUM(AvgReqSize*LogCount)/SUM(LogCount) AS AvgReqSize,
+           SUM(AvgResSize*LogCount)/SUM(LogCount) AS AvgResSize,
+           SUM(AvgStartTime*LogCount)/SUM(LogCount) AS AvgStartTime,
+           LegacyStatusCode,
+           Node,
+           Plugin,
+           SUM(LogCount) AS LogCount,
+           SUM(LogCountOfImpactedByGC) AS LogCountOfImpactedByGC 
+    FROM PluginDataAgg
+    WHERE 
+           PluginDataAgg.CommonVariant == "Mkt:EnUs; TrafficType:ProdNonPremium" OR
+           PluginDataAgg.CommonVariant == "Mkt:EnUs; TrafficType:Premium" OR
+           PluginDataAgg.CommonVariant == "Mkt:Others; TrafficType:ProdNonPremium" OR
+           PluginDataAgg.CommonVariant == "Mkt:Others; TrafficType:Premium";
+       
+// COUNT(DISTINCT) is no-recursive and performance is bad, replaced with GROUP BY
+PluginDataQueryCount =
+    SELECT EnvironmentName,
+           Workflow,
+           CommonVariant,
+           COUNT( * ) AS QueryCount,
+           SUM(InP95?1:0) AS QueryCountInP95
+    FROM
+    (
+        SELECT EnvironmentName,
+               Workflow,
+               CommonVariant,
+               QueryId,
+               InP95             
+        FROM AllRawLogFinished
+        GROUP BY EnvironmentName,
+                 Workflow,
+                 CommonVariant,
+                 QueryId,
+                 InP95
+    ) AS s;
+
+PluginDataQueryCountWithProd =
+    SELECT EnvironmentName,
+           Workflow,
+           Utility.MergeProdVariant(CommonVariant) AS CommonVariant,
+           SUM(QueryCount) AS QueryCount,
+           SUM(QueryCountInP95) AS QueryCountInP95
+    FROM PluginDataQueryCount
+    WHERE
+           PluginDataQueryCount.CommonVariant == "Mkt:EnUs; TrafficType:ProdNonPremium" OR
+           PluginDataQueryCount.CommonVariant == "Mkt:EnUs; TrafficType:Premium" OR
+           PluginDataQueryCount.CommonVariant == "Mkt:Others; TrafficType:ProdNonPremium" OR
+           PluginDataQueryCount.CommonVariant == "Mkt:Others; TrafficType:Premium";  
+       
+       
+PluginDataResult =
+    SELECT @HourlyDateTime AS LogDate, 
+           PluginDataAgg.EnvironmentName,
+           PluginDataAgg.Workflow,
+           PluginDataAgg.CommonVariant,
+           InP95?QueryCountInP95:QueryCount AS QueryCount,
+           Plugin,
+           Node,
+           QuickHistogram.Parse(LatencyAggregateData).GetMean(0) AS AvgLatency,
+           AvgRemoteLatency,
+           AvgReqSize,
+           AvgResSize,
+           AvgStartTime,
+           LegacyStatusCode,
+           LogCount,
+           LogCountOfImpactedByGC,
+           Cached?1:0 AS Cached,
+           Failed?1:0 AS Failed,
+           TimedOut?1:0 AS TimedOut,
+           InCriticalPath?1:0 AS InCriticalPath,
+           InP95?1:0 AS InP95,
+           QuickHistogram.Parse(LatencyAggregateData).ToString() AS LatencyAggregateData,
+           QuickHistogram.Parse(CoreTimeAggregateData).ToString() AS CoreTimeAggregateData
+    FROM PluginDataAgg INNER JOIN PluginDataQueryCount 
+    ON PluginDataAgg.EnvironmentName == PluginDataQueryCount.EnvironmentName AND 
+          PluginDataAgg.Workflow == PluginDataQueryCount.Workflow AND 
+          PluginDataAgg.CommonVariant == PluginDataQueryCount.CommonVariant              
+    WHERE  PluginDataAgg.CommonVariant != "Mkt:EnUs; TrafficType:ProdNonPremium" AND
+           PluginDataAgg.CommonVariant != "Mkt:Others; TrafficType:ProdNonPremium" AND
+           PluginDataAgg.CommonVariant != "Mkt:Others; TrafficType:Premium"           
+    UNION ALL 
+    SELECT @HourlyDateTime AS LogDate, 
+           PluginDataAggWithProd.EnvironmentName,
+           PluginDataAggWithProd.Workflow,
+           PluginDataAggWithProd.CommonVariant,
+           InP95?QueryCountInP95:QueryCount AS QueryCount,
+           Plugin,
+           Node,
+           QuickHistogram.Parse(LatencyAggregateData).GetMean(0) AS AvgLatency,
+           (double?)AvgRemoteLatency AS AvgRemoteLatency,
+           (double?)AvgReqSize AS AvgReqSize,
+           (double?)AvgResSize AS AvgResSize,
+           (double?)AvgStartTime AS AvgStartTime,
+           LegacyStatusCode,
+           LogCount,
+           LogCountOfImpactedByGC,
+           Cached?1:0 AS Cached,
+           Failed?1:0 AS Failed,
+           TimedOut?1:0 AS TimedOut,
+           InCriticalPath?1:0 AS InCriticalPath,
+           InP95?1:0 AS InP95,
+           QuickHistogram.Parse(LatencyAggregateData).ToString() AS LatencyAggregateData,
+           QuickHistogram.Parse(CoreTimeAggregateData).ToString() AS CoreTimeAggregateData
+    FROM PluginDataAggWithProd INNER JOIN PluginDataQueryCountWithProd 
+    ON PluginDataAggWithProd.EnvironmentName == PluginDataQueryCountWithProd.EnvironmentName AND 
+          PluginDataAggWithProd.Workflow == PluginDataQueryCountWithProd.Workflow AND 
+          PluginDataAggWithProd.CommonVariant == PluginDataQueryCountWithProd.CommonVariant;
+
+OUTPUT PluginDataResult
+TO @pluginDataResultStream
+WITH STREAMEXPIRY "365";
+OUTPUT CancelationCountResult
+TO @CancelationCountResultStream
+WITH STREAMEXPIRY "30";
+
+#CS
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Text;
+using ScopeRuntime;
+using Microsoft.Bing.Xap.QueryLog;
+
+/// <summary>
+/// General purpose extractor
+/// </summary>
+public class XapDataExtractor : Extractor
+{
+    private const string DefaultVariantDelimeter = ",";
+
+    /// <summary>
+    /// A list of keys to parse VariantContraint values 
+    /// </summary>
+    private string[] variantKeys;
+
+    /// <summary>
+    /// Gets or sets the delimeter for the concatenated variant string
+    /// </summary>
+    private string variantDelimeter;
+
+    public override bool AllowColumnPruning { get { return true; } }
+
+    /// <summary>
+    /// Function used to specify the schema for the Scope Compiler
+    /// </summary>
+    /// <param name="columns">Array of string with requested column names</param>
+    /// <param name="args">List of Input Arguments</param>
+    /// <returns>Schema used by Scope to define the columns</returns>
+    public override Schema Produces(string[] columns, string[] args)
+    {
+        Schema schema = new Schema();
+
+        ///
+        /// Columns for overall workflow data
+        /// 
+        schema.Add(new ColumnInfo("EnvironmentName", ColumnDataType.String));
+        schema.Add(new ColumnInfo("Experiment", ColumnDataType.String));
+        schema.Add(new ColumnInfo("ExperimentVersion", ColumnDataType.String));
+        schema.Add(new ColumnInfo("Workflow", ColumnDataType.String));
+        schema.Add(new ColumnInfo("WorkflowVersion", ColumnDataType.String));
+        schema.Add(new ColumnInfo("CommonVariant", ColumnDataType.String));
+        schema.Add(new ColumnInfo("FormattedFlights", ColumnDataType.String));
+        schema.Add(new ColumnInfo("QueryId", ColumnDataType.String));
+        schema.Add(new ColumnInfo("QueryLatency", ColumnDataType.Long));
+        schema.Add(new ColumnInfo("SendStartMS", ColumnDataType.Long));
+        schema.Add(new ColumnInfo("ReceiveEndMS", ColumnDataType.Long));
+        schema.Add(new ColumnInfo("AHOverheadMS", ColumnDataType.Long));
+        schema.Add(new ColumnInfo("StartAHOverheadMS", ColumnDataType.Long));
+        schema.Add(new ColumnInfo("EndAHOverheadMS", ColumnDataType.Long));
+        schema.Add(new ColumnInfo("Cost", ColumnDataType.Long));
+        schema.Add(new ColumnInfo("RawRecord", ColumnDataType.String));
+
+        ///
+        /// Data of individual plugin/node
+        ///
+        schema.Add(new ColumnInfo("NodesData", typeof(QueryNodesData)));
+
+        return schema;
+    }
+
+    /// <summary>
+    /// Extract function that determines Critical Path and returns one or more scope rows
+    /// </summary>
+    /// <param name="reader">StreamReader to read the input data stream</param>
+    /// <param name="outputRow">Scope Row Object</param>
+    /// <param name="args">List of Input Arguments. Used to pass in filters such as Workflow=x;y Experiment=Prod</param>
+    /// <returns>The enumerator of rows</returns>
+    /// <remarks>
+    /// </remarks>
+    public override IEnumerable<Row> Extract(StreamReader reader, Row outputRow, string[] args)
+    {
+        this.ProcessArguments(args);
+
+        // The string (name) based indexer on the Row object is much slower that the int based indexer
+        int idxOutputEnvironment = outputRow.Schema["EnvironmentName"];
+        int idxOutputExperiment = outputRow.Schema["Experiment"];
+        int idxOutputExperimentVersion = outputRow.Schema["ExperimentVersion"];
+        int idxOutputWorkflow = outputRow.Schema["Workflow"];
+        int idxOutputWorkflowVersion = outputRow.Schema["WorkflowVersion"];
+        int idxOutputCommonVariant = outputRow.Schema["CommonVariant"];
+        int idxOutputFormattedFlights = outputRow.Schema["FormattedFlights"];
+        int idxOutputQueryId = outputRow.Schema["QueryId"];
+        int idxOutputQueryLatency = outputRow.Schema["QueryLatency"];
+        int idxOutputSendStartMS = outputRow.Schema["SendStartMS"];
+        int idxOutputReceiveEndMS = outputRow.Schema["ReceiveEndMS"];
+        int idxOutputAHOverheadMS = outputRow.Schema["AHOverheadMS"];
+        int idxOutputStartAHOverheadMS = outputRow.Schema["StartAHOverheadMS"];
+        int idxOutputEndAHOverheadMS = outputRow.Schema["EndAHOverheadMS"];
+        int idxOutputCost = outputRow.Schema["Cost"];
+        int idxOutputNodesData = outputRow.Schema["NodesData"];
+        int idxOutputRawRecord = outputRow.Schema["RawRecord"];
+
+        QueryNodesData nodesData = null;
+
+        foreach (QueryContainer query in Reader.ReadStream(reader, OnBadLog))
+        {
+            // StreamReader returns null when it fails to parse the data stream, possibly caused by parser bugs or data stream itself, skip the record
+            if (query == null || query.Events == null || query.Events.Count == 0)
+            {
+                continue;
+            }
+
+            // Get query properties
+            QueryEventData eventData = query.Events[0].EventData;
+            string commonVariant, formattedFlights, exp;
+            long totalLatency = 0;
+            bool isValidQuery = true;
+
+            try
+            {
+                // Filter out invalid queries by variants
+                string varAhWarmup;
+                if (eventData.VariantConstraints.TryGetValue("AHWARMUP", out varAhWarmup) && varAhWarmup == "1")
+                {
+                    isValidQuery = false;
+                }
+
+                commonVariant = GetVariant(eventData.VariantConstraints);
+                formattedFlights = VariantHelpers.GetFlightsString(variantDelimeter, eventData.VariantConstraintString,
+                    variantKeys);
+                exp = eventData.Experiment;
+                totalLatency = eventData.SendCompleteMS;
+            }
+            catch
+            {
+                continue;
+            }
+
+            // Filter out invalid query with bad totalLatency or non-Prod experiments
+            if (!isValidQuery || double.IsNaN(totalLatency) || totalLatency < 0 || !"Prod".Equals(exp, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            nodesData = null;
+            if (eventData.Nodes != null && eventData.Nodes.Count > 0)
+            {
+                nodesData = new QueryNodesData();
+
+                // Add all node logs to ExecutionGraph object
+                foreach (QueryNodeEvent nodeEvent in eventData.Nodes)
+                {
+                    if (nodeEvent != null &&
+                        !double.IsNaN(nodeEvent.StartOffsetMS) &&
+                        !double.IsNaN(nodeEvent.EndOffsetMS) &&
+                        !double.IsNaN(nodeEvent.RemoteLatency) &&
+                        nodeEvent.StartOffsetMS >= 0 &&
+                        nodeEvent.EndOffsetMS >= nodeEvent.StartOffsetMS &&
+                        (nodeEvent.Finished || nodeEvent.Canceled))
+                    {
+                        nodesData.NodeDataList.Add(new NodeData
+                        {
+                            Cached = nodeEvent.Cached,
+                            Canceled = nodeEvent.Canceled,
+                            Finished = nodeEvent.Finished,
+                            Failed = nodeEvent.Failed,
+                            InCriticalPath = nodeEvent.InCriticalPath,
+                            ImpactedByGC = nodeEvent.ImpactedByGC,
+                            TotalLatency = totalLatency,
+                            TimedOut = nodeEvent.TimedOut,
+                            CoreTimeMicroSec = (int)nodeEvent.CoreTimeMicroSec,
+                            Latency = (int)(nodeEvent.EndOffsetMS - nodeEvent.StartOffsetMS),
+                            RemoteLatency = (int)nodeEvent.RemoteLatency,
+                            RemoteRequestSize = nodeEvent.RemoteRequestSize,
+                            RemoteResponseSize = nodeEvent.RemoteResponseSize,
+                            StartTime = (int)nodeEvent.StartOffsetMS,
+                            LegacyStatusCode = nodeEvent.LegacyStatusCode,
+                            Node = nodeEvent.Node,
+                            Plugin = nodeEvent.Plugin,
+                        });
+                    }
+                }
+            }
+
+            outputRow[idxOutputEnvironment].Set(eventData.Environment);
+            outputRow[idxOutputExperiment].Set(exp);
+            outputRow[idxOutputExperimentVersion].Set(eventData.ExperimentVersion);
+            outputRow[idxOutputWorkflow].Set(eventData.Workflow);
+            
+            // Fork raw log for Assistant.BingFirstPageResults
+            if( "Assistant.BingFirstPageResults" == eventData.Workflow )
+            {
+               outputRow[idxOutputRawRecord].Set(query.ToString());
+            }
+            else
+            {
+               outputRow[idxOutputRawRecord].Set(string.Empty);
+            }
+
+            outputRow[idxOutputWorkflowVersion].Set(eventData.WorkflowVersion);
+            outputRow[idxOutputCommonVariant].Set(commonVariant);
+            outputRow[idxOutputFormattedFlights].Set(formattedFlights);
+            outputRow[idxOutputQueryId].Set(eventData.QueryID);
+            outputRow[idxOutputQueryLatency].Set(eventData.SendCompleteMS);
+            outputRow[idxOutputSendStartMS].Set(eventData.SendStartMS);
+            outputRow[idxOutputReceiveEndMS].Set(eventData.ReceiveEndMS);
+            outputRow[idxOutputAHOverheadMS].Set(eventData.TotalAHOverheadMS);
+            outputRow[idxOutputStartAHOverheadMS].Set(eventData.StartAHOverheadMS);
+            outputRow[idxOutputEndAHOverheadMS].Set(eventData.EndAHOverheadMS);
+            outputRow[idxOutputCost].Set(eventData.Cost);
+            outputRow[idxOutputNodesData].Set(nodesData);
+            yield return outputRow;
+        }
+    }
+
+    private void ProcessArguments(string[] args)
+    {
+        if (this.variantKeys == null && args.Length >= 2)
+        {
+            // Parse and validate the variant extraction parameters
+            variantDelimeter = args[1];
+            string delimeter = String.IsNullOrWhiteSpace(variantDelimeter) ? DefaultVariantDelimeter : variantDelimeter;
+            variantKeys = args[0].Split(new String[] { delimeter }, StringSplitOptions.RemoveEmptyEntries);
+            for (int i = 0; i < variantKeys.Length; i++)
+            {
+                variantKeys[i] = variantKeys[i].Trim();
+            }
+        }
+    }
+
+    private void OnBadLog(string recordData)
+    {
+    }
+
+    public string GetVariant(Dictionary<string, string> variantConstraints)
+    {
+        string market, trafficPriority, trafficType, varAhForkedStr, varExpStr, varForkedStr,varTestStr;
+
+        bool IsExpOrForkedOrTest = (variantConstraints.TryGetValue("AHFORKED", out varAhForkedStr) && varAhForkedStr == "1") ||
+            (variantConstraints.TryGetValue("ISEXP", out varExpStr) && varExpStr == "1") ||
+            (variantConstraints.TryGetValue("FORKED", out varForkedStr) && varForkedStr == "1") ||
+            (variantConstraints.TryGetValue("ISTESTTRAFFIC", out varTestStr) && varTestStr == "1");
+
+
+        if (!variantConstraints.TryGetValue("MKT", out market))
+        {
+            market = string.Empty;
+        }
+        if (!variantConstraints.TryGetValue("TRAFFICPRIORITY", out trafficPriority))
+        {
+            trafficPriority = string.Empty;
+        }
+        if (!variantConstraints.TryGetValue("traffictype", out trafficType))
+        {
+            trafficType = string.Empty;
+        }
+
+        if (!string.IsNullOrEmpty(trafficType) && "TEST_CAPACITYRUN".Equals(trafficType, StringComparison.OrdinalIgnoreCase))
+        {
+            return "CapacityRun";
+        }
+
+        if (!string.IsNullOrEmpty(trafficPriority) && !"Premium".Equals(trafficPriority, StringComparison.OrdinalIgnoreCase) && !"Full".Equals(trafficPriority, StringComparison.OrdinalIgnoreCase))
+        {
+            return "NonPremiumFull";
+        }
+        else
+        {
+            StringBuilder sb = new StringBuilder();
+            sb.AppendFormat("Mkt:{0}; ", "EN-US".Equals(market, StringComparison.OrdinalIgnoreCase) ? "EnUs" : "Others");
+            bool isProdTrafficType = string.IsNullOrEmpty(trafficType) ||
+                "untagged".Equals(trafficType, StringComparison.OrdinalIgnoreCase) ||
+                "yahooprod".Equals(trafficType, StringComparison.OrdinalIgnoreCase);
+            if(isProdTrafficType && !IsExpOrForkedOrTest)
+            {
+                bool isPremium = !string.IsNullOrEmpty(trafficPriority) && "Premium".Equals(trafficPriority, StringComparison.OrdinalIgnoreCase);
+                sb.AppendFormat("TrafficType:{0}", isPremium ? "Premium" : "ProdNonPremium");                
+            }
+            else
+            {
+                sb.AppendFormat("TrafficType:{0}", "Others" );                
+            }            
+            return sb.ToString();
+        }
+    }
+}
+
+/// <summary>
+/// UDT to include all nodes data of a query.
+/// </summary>
+public class QueryNodesData
+{
+    public List<NodeData> NodeDataList { get; private set; }
+
+    public QueryNodesData()
+    {
+        this.NodeDataList = new List<NodeData>();
+    }
+
+    public override bool Equals(object other)
+    {
+        if (Object.ReferenceEquals(this, other))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    public override int GetHashCode()
+    {
+        return this.NodeDataList.GetHashCode();
+    }
+}
+
+/// <summary>
+/// Define data fields of plugin/node.
+/// </summary>
+public class NodeData
+{
+    // Boolean values
+    public bool Cached;
+    public bool Canceled;
+    public bool Finished;
+    public bool Failed;
+    public bool InCriticalPath;
+    public bool ImpactedByGC;
+    public bool TimedOut;
+
+    // number values
+    public long TotalLatency;
+    public double CoreTimeMicroSec;
+    public double Latency;
+    public double RemoteLatency;
+    public double RemoteRequestSize;
+    public double RemoteResponseSize;
+    public double StartTime;
+
+    // Enum values
+    public int LegacyStatusCode;
+
+    // String values
+    public string Node;
+    public string Plugin;
+
+    public override bool Equals(object other)
+    {
+        if (Object.ReferenceEquals(this, other))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    public override int GetHashCode()
+    {
+        return this.Node.GetHashCode();
+    }
+}
+
+public class QueryNodesDataProcessor : Processor
+{
+    public override bool AllowColumnPruning { get { return true; } }
+
+    public override bool RowLevelProcessor { get { return true; } }
+
+    public override Schema Produces(string[] requestedColumns, string[] args, Schema input)
+    {
+        Schema schema = new Schema();
+
+        ///
+        /// Columns for overall workflow data
+        /// 
+        schema.Add(CreateColumn("EnvironmentName", ColumnDataType.String, input[input["EnvironmentName"]], input[input["EnvironmentName"]]));
+        schema.Add(CreateColumn("Workflow", ColumnDataType.String, input[input["Workflow"]], input[input["Workflow"]]));
+        schema.Add(CreateColumn("CommonVariant", ColumnDataType.String, input[input["CommonVariant"]], input[input["CommonVariant"]]));
+        schema.Add(CreateColumn("QueryId", ColumnDataType.String, input[input["QueryId"]], input[input["QueryId"]]));
+
+        ///
+        /// Columns for individual plugin/node data
+        ///
+
+        ColumnInfo nodesDataColumn = input[input["NodesData"]];
+
+        // Boolean values
+        schema.Add(CreateColumn("Cached", ColumnDataType.Boolean, nodesDataColumn));
+        schema.Add(CreateColumn("Canceled", ColumnDataType.Boolean, nodesDataColumn));
+        schema.Add(CreateColumn("Finished", ColumnDataType.Boolean, nodesDataColumn));
+        schema.Add(CreateColumn("Failed", ColumnDataType.Boolean, nodesDataColumn));
+        schema.Add(CreateColumn("InCriticalPath", ColumnDataType.Boolean, nodesDataColumn));
+        schema.Add(CreateColumn("ImpactedByGC", ColumnDataType.Boolean, nodesDataColumn));
+
+        schema.Add(CreateColumn("TimedOut", ColumnDataType.Boolean, nodesDataColumn));
+
+        // number values
+        schema.Add(CreateColumn("TotalLatency", ColumnDataType.Long, nodesDataColumn));
+        schema.Add(CreateColumn("CoreTimeMicroSec", ColumnDataType.Double, nodesDataColumn));
+        schema.Add(CreateColumn("Latency", ColumnDataType.Double, nodesDataColumn));
+        schema.Add(CreateColumn("RemoteLatency", ColumnDataType.Double, nodesDataColumn));
+        schema.Add(CreateColumn("RemoteRequestSize", ColumnDataType.Double, nodesDataColumn));
+        schema.Add(CreateColumn("RemoteResponseSize", ColumnDataType.Double, nodesDataColumn));
+        schema.Add(CreateColumn("StartTime", ColumnDataType.Double, nodesDataColumn));
+
+        // Enum values
+        schema.Add(CreateColumn("LegacyStatusCode", ColumnDataType.Double, nodesDataColumn));
+
+        // String values
+        schema.Add(CreateColumn("Node", ColumnDataType.String, nodesDataColumn));
+        schema.Add(CreateColumn("Plugin", ColumnDataType.String, nodesDataColumn));
+
+        return schema;
+    }
+
+    private ColumnInfo CreateColumn(string name, ColumnDataType type, ColumnInfo dependency, ColumnInfo source = null)
+    {
+        ColumnInfo column = new ColumnInfo(name, type);
+        if (dependency != null)
+        {
+            column.AddDependency(dependency);
+        }
+
+        if (source != null)
+        {
+            column.Source = source;
+        }
+
+        return column;
+    }
+
+    public override IEnumerable<Row> Process(RowSet input, Row outputRow, string[] args)
+    {
+        // The string (name) based indexer on the Row object is much slower that the int based indexer
+        int idxInputEnvironment = input.Schema["EnvironmentName"];
+        int idxInputWorkflow = input.Schema["Workflow"];
+        int idxInputCommonVariant = input.Schema["CommonVariant"];
+        int idxInputQueryId = input.Schema["QueryId"];
+        int idxInputNodesData = input.Schema["NodesData"];
+
+        int idxOutputEnvironment = outputRow.Schema["EnvironmentName"];
+        int idxOutputWorkflow = outputRow.Schema["Workflow"];
+        int idxOutputCommonVariant = outputRow.Schema["CommonVariant"];
+        int idxOutputQueryId = outputRow.Schema["QueryId"];
+
+        int idxOutputCached = outputRow.Schema["Cached"];
+        int idxOutputCanceled = outputRow.Schema["Canceled"];
+        int idxOutputFinished = outputRow.Schema["Finished"];
+        int idxOutputFailed = outputRow.Schema["Failed"];
+        int idxOutputInCriticalPath = outputRow.Schema["InCriticalPath"];
+        int idxOutputImpactedByGC = outputRow.Schema["ImpactedByGC"];
+        int idxOutputTotalLatency = outputRow.Schema["TotalLatency"];
+        int idxOutputTimedOut = outputRow.Schema["TimedOut"];
+        int idxOutputCoreTimeMicroSec = outputRow.Schema["CoreTimeMicroSec"];
+        int idxOutputLatency = outputRow.Schema["Latency"];
+        int idxOutputRemoteLatency = outputRow.Schema["RemoteLatency"];
+        int idxOutputRemoteRequestSize = outputRow.Schema["RemoteRequestSize"];
+        int idxOutputRemoteResponseSize = outputRow.Schema["RemoteResponseSize"];
+        int idxOutputStartTime = outputRow.Schema["StartTime"];
+        int idxOutputLegacyStatusCode = outputRow.Schema["LegacyStatusCode"];
+        int idxOutputNode = outputRow.Schema["Node"];
+        int idxOutputPlugin = outputRow.Schema["Plugin"];
+
+        foreach (Row inputRow in input.Rows)
+        {
+            inputRow[idxInputEnvironment].CopyTo(outputRow[idxOutputEnvironment]);
+            inputRow[idxInputWorkflow].CopyTo(outputRow[idxOutputWorkflow]);
+            inputRow[idxInputCommonVariant].CopyTo(outputRow[idxOutputCommonVariant]);
+            inputRow[idxInputQueryId].CopyTo(outputRow[idxOutputQueryId]);
+
+            QueryNodesData nodesData = inputRow[idxInputNodesData].Value as QueryNodesData;
+            if (nodesData == null)
+            {
+                continue;
+            }
+
+            foreach (NodeData nodeData in nodesData.NodeDataList)
+            {
+                outputRow[idxOutputCached].Set(nodeData.Cached);
+                outputRow[idxOutputCanceled].Set(nodeData.Canceled);
+                outputRow[idxOutputFinished].Set(nodeData.Finished);
+                outputRow[idxOutputFailed].Set(nodeData.Failed);
+                outputRow[idxOutputInCriticalPath].Set(nodeData.InCriticalPath);
+                outputRow[idxOutputImpactedByGC].Set(nodeData.ImpactedByGC);
+                outputRow[idxOutputTotalLatency].Set(nodeData.TotalLatency);
+                outputRow[idxOutputTimedOut].Set(nodeData.TimedOut);
+                outputRow[idxOutputCoreTimeMicroSec].Set(nodeData.CoreTimeMicroSec);
+                outputRow[idxOutputLatency].Set(nodeData.Latency);
+                outputRow[idxOutputRemoteLatency].Set(nodeData.RemoteLatency);
+                outputRow[idxOutputRemoteRequestSize].Set(nodeData.RemoteRequestSize);
+                outputRow[idxOutputRemoteResponseSize].Set(nodeData.RemoteResponseSize);
+                outputRow[idxOutputStartTime].Set(nodeData.StartTime);
+                outputRow[idxOutputLegacyStatusCode].Set(nodeData.LegacyStatusCode);
+                outputRow[idxOutputNode].Set(nodeData.Node);
+                outputRow[idxOutputPlugin].Set(nodeData.Plugin);
+                yield return outputRow;
+            }
+        }
+    }
+}
+
+public class Utility
+{
+    public static double NomalizeAHOverhead(double ahOverhead)
+    {
+        return (ahOverhead > 10000 || ahOverhead < 0) ? 0 : ahOverhead;
+    }
+
+    public static string MergeProdVariant(string commonVariant)
+    {
+       if (!string.IsNullOrEmpty(commonVariant))
+       {
+            if ("Mkt:EnUs; TrafficType:ProdNonPremium".Equals(commonVariant)|| "Mkt:EnUs; TrafficType:Premium".Equals(commonVariant))
+            {
+               return "Mkt:EnUs; TrafficType:Prod";
+            }
+            else if ("Mkt:Others; TrafficType:ProdNonPremium".Equals(commonVariant) || "Mkt:Others; TrafficType:Premium".Equals(commonVariant))
+            {
+               return "Mkt:Others; TrafficType:Prod";
+            }
+       }
+       return  "";
+    }
+}
+#ENDCS

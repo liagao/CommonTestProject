@@ -1,0 +1,32 @@
+StartTime:	5/2/2016 2:15:56 PM
+EndTime:	5/2/2016 2:16:00 PM
+Duration:	3.7822428s
+Directory:	D:\ZZProjects\Common\CommonTestProject
+OutputFile:	D:\1.txt
+Severity:	0
+
+D:\ZZProjects\Common\CommonTestProject\CommonTestProject\Program.cs
+Location: (13,30) ~ (13,48)	Detail:  warning ConstantVariableToStringAnalyzer: Use "1" directly.	Code: a12345678.ToString
+
+D:\ZZProjects\Common\CommonTestProject\CommonTestProject\Properties\AssemblyInfo.cs
+Location: (32,20) ~ (32,30)	Detail:  warning ConstantVariableToStringAnalyzer: Use "13" directly.	Code: a.ToString
+Location: (16,14) ~ (16,17)	Detail:  info HeapAnalyzerExplicitNewObjectRule: Explicit new reference type allocation	Code: new
+Location: (11,12) ~ (11,47)	Detail:  warning StringUpperLowerAnalyzer: Parameter str2.ToLower() contains ToUpper or ToLower.	Code: string.Equals(str1, str2.ToLower())
+Location: (33,45) ~ (33,48)	Detail:  info HeapAnalyzerBoxingRule: Value type to reference type conversion causes boxing at call site (here), and unboxing at the callee-site. Consider using generics if applicable	Code: 123
+Location: (16,8) ~ (16,43)	Detail:  warning NullReferenceExceptionAnalyzer: Don't try to use an optional input and rely on a NullReferenceException to be thrown and caught. Check the value for null first.	Code: throw new NullReferenceException();
+
+D:\ZZProjects\Common\CommonTestProject\ConsoleApplication4\Program.cs
+Location: (236,20) ~ (236,100)	Detail:  info HeapAnalyzerImplicitParamsRule: This call site is calling into a function with a 'params' parameter. This results in an array allocation even if no parameter is passed in for the params parameter	Code: Console.WriteLine("Run {0}: {1} took {2}. {3}", i, flavor.Key, duration, result)
+Location: (268,20) ~ (268,50)	Detail:  info HeapAnalyzerImplicitParamsRule: This call site is calling into a function with a 'params' parameter. This results in an array allocation even if no parameter is passed in for the params parameter	Code: string.Concat(a, ", ", b, "!")
+Location: (257,22) ~ (257,23)	Detail:  info HeapAnalyzerStringConcatRule: Considering using StringBuilder	Code: +
+Location: (257,29) ~ (257,30)	Detail:  info HeapAnalyzerStringConcatRule: Considering using StringBuilder	Code: +
+Location: (257,33) ~ (257,34)	Detail:  info HeapAnalyzerStringConcatRule: Considering using StringBuilder	Code: +
+Location: (257,22) ~ (257,23)	Detail:  info HeapAnalyzerStringConcatRule: Considering using StringBuilder	Code: +
+Location: (257,29) ~ (257,30)	Detail:  info HeapAnalyzerStringConcatRule: Considering using StringBuilder	Code: +
+Location: (257,22) ~ (257,23)	Detail:  info HeapAnalyzerStringConcatRule: Considering using StringBuilder	Code: +
+Location: (219,26) ~ (219,29)	Detail:  info HeapAnalyzerExplicitNewObjectRule: Explicit new reference type allocation	Code: new
+Location: (219,16) ~ (219,23)	Detail:  info HeapAnalyzerInitializerCreationRule: Initializer reference type allocation	Code: flavors
+Location: (219,26) ~ (224,13)	Detail:  warning StringCollectionInitializationAnalyzer: Add 'comparer' parameter	Code: new Dictionary<string, Func<T, T, int, string>>            {                { "format", TestFormat},                { "add", TestAdd},                { "concat", TestConcat},            }
+Location: (236,68) ~ (236,69)	Detail:  info HeapAnalyzerBoxingRule: Value type to reference type conversion causes boxing at call site (here), and unboxing at the callee-site. Consider using generics if applicable	Code: i
+Location: (236,83) ~ (236,91)	Detail:  info HeapAnalyzerBoxingRule: Value type to reference type conversion causes boxing at call site (here), and unboxing at the callee-site. Consider using generics if applicable	Code: duration
+
