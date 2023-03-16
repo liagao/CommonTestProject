@@ -1,6 +1,8 @@
 ﻿namespace EnumBenchmarkDemo
 {
     using BenchmarkDotNet.Attributes;
+    using BenchmarkDotNet.Engines;
+    using Microsoft.Diagnostics.Runtime.Utilities;
 
     internal static class EnumExtensions
     {
@@ -51,36 +53,44 @@
         }
 
         [Benchmark]
-        public void TestWithEnumHelper()
+        public int TestWithEnumHelper()
         {
+            int result = 1000;
            
             for(int i = 0; i< 1000000; i++)
             {
-                var testVar = EnumHelper<TestEnum>.ToString((long)TestEnum.TestValue7);
-                //var test = testVar.FastToString();
-                HandleHashCode(testVar, i);
+                var test = EnumHelper<TestEnum>.ToString((long)TestEnum.TestValue7);
+                result += HandleHashCode(test, i) % 3;
             }
+
+            return result;
         }
 
         [Benchmark]
-        public void TestWithNameOf()
+        public int TestWithNameOf()
         {
+            int result = 1000;
             for (int i = 0; i < 1000000; i++)
             {
                 var test = nameof(TestEnum.TestValue7);
-                HandleHashCode(test, i);
+                result += HandleHashCode(test, i) % 3;
             }
+
+            return result;
         }
 
 
         [Benchmark]
-        public void TestWithDefaultToString()
+        public int TestWithDefaultToString()
         {
+            int result = 1000;
             for (int i = 0; i < 1000000; i++)
             {
                 var test = TestEnum.TestValue7.ToString();
-                HandleHashCode(test, i);
+                result += HandleHashCode(test, i) %3;
             }
+
+            return result;
         }
 
         private int HandleHashCode(string test, int i)
