@@ -1,8 +1,6 @@
 ﻿namespace EnumBenchmarkDemo
 {
     using BenchmarkDotNet.Attributes;
-    using BenchmarkDotNet.Engines;
-    using Microsoft.Diagnostics.Runtime.Utilities;
 
     internal static class EnumExtensions
     {
@@ -53,49 +51,32 @@
         }
 
         [Benchmark]
-        public int TestWithEnumHelper()
+        [InvocationCount(10000000)]
+        public string TestWithEnumHelper()
         {
-            int result = 1000;
-           
-            for(int i = 0; i< 1000000; i++)
-            {
-                var test = EnumHelper<TestEnum>.ToString((long)TestEnum.TestValue7);
-                result += HandleHashCode(test, i) % 3;
-            }
-
-            return result;
+             return EnumHelper<TestEnum>.ToString((long)TestEnum.TestValue0);
         }
 
         [Benchmark]
-        public int TestWithNameOf()
+        [InvocationCount(10000000)]
+        public string TestWithNameOf()
         {
-            int result = 1000;
-            for (int i = 0; i < 1000000; i++)
-            {
-                var test = nameof(TestEnum.TestValue7);
-                result += HandleHashCode(test, i) % 3;
-            }
-
-            return result;
+            return nameof(TestEnum.TestValue0);
         }
 
+
+        [Benchmark(Baseline = true)]
+        [InvocationCount(10000000)]
+        public string TestWithDefaultToString()
+        {
+            return TestEnum.TestValue0.ToString();
+        }
 
         [Benchmark]
-        public int TestWithDefaultToString()
+        [InvocationCount(10000000)]
+        public string TestWithExtension()
         {
-            int result = 1000;
-            for (int i = 0; i < 1000000; i++)
-            {
-                var test = TestEnum.TestValue7.ToString();
-                result += HandleHashCode(test, i) %3;
-            }
-
-            return result;
-        }
-
-        private int HandleHashCode(string test, int i)
-        {
-            return test.GetHashCode() + i;
+            return EnumExtensions.FastToString(TestEnum.TestValue0);
         }
     }
 }
