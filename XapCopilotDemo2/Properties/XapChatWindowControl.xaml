@@ -1,0 +1,65 @@
+﻿<UserControl x:Class="XapCopilotDemo2.Properties.XapChatWindowControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             mc:Ignorable="d"
+             d:DesignHeight="300" d:DesignWidth="300"
+             Name="MyToolWindow">
+    <Grid Name="Grid1">
+        <ScrollViewer x:Name="ScrollViewer" Margin="5,5,5,40">
+            <Grid Name="ConversationGrid" ScrollViewer.VerticalScrollBarVisibility="Visible">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"></RowDefinition>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"></ColumnDefinition>
+                </Grid.ColumnDefinitions>
+                <Grid x:Name="grid" Grid.Row="0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"></RowDefinition>
+                        <RowDefinition Height="Auto"></RowDefinition>
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"></ColumnDefinition>
+                        <ColumnDefinition Width="*"></ColumnDefinition>
+                    </Grid.ColumnDefinitions>
+                    <Image Name="imagebot" Grid.Row="0" Grid.Column="0" Source="/XapCopilotDemo2;component/Properties/Resources/boticon.png"/>
+                    <TextBlock x:Name="textBlock" Text="Xap Copilot" FontWeight="Bold" Grid.Row="0" Grid.Column="1" VerticalAlignment="Center" Margin="5"/>
+
+                    <StackPanel Grid.Row="1" Grid.Column="1">
+                        <TextBox Margin="0,5,0,5" HorizontalAlignment="Stretch" BorderThickness="0" IsReadOnly="True" Background="Transparent" BorderBrush="Transparent" TextWrapping="Wrap">
+                            Hello! Let's build together. Here are some suggestions to get you started:
+                        </TextBox>
+                        <StackPanel HorizontalAlignment="Stretch" Margin="0,5,0,5">
+                            <TextBlock HorizontalAlignment="Stretch"><Hyperlink Foreground="Blue" RequestNavigate="Hyperlink_RequestNavigate" NavigateUri="https://stackoverflow.microsoft.com/questions/tagged/221">How to find all the xap related questions?</Hyperlink></TextBlock>
+                            <TextBlock HorizontalAlignment="Stretch"><Hyperlink Foreground="Blue" RequestNavigate="Hyperlink_RequestNavigate" NavigateUri="https://eng.ms/docs/experiences-devices/webxt/search-content-platform/indexserve-and-xap/xap/xap-documentation-for-partners">Where is the XAP Doc System?</Hyperlink></TextBlock>
+                            <TextBlock HorizontalAlignment="Stretch"><Hyperlink Foreground="Blue" RequestNavigate="Hyperlink_RequestNavigate" NavigateUri="https://xapdataplatform.binginternal.com/DataPlatform/VstsMerge/VstsMerges">How to check my merge status?</Hyperlink></TextBlock>
+                        </StackPanel>
+                        <TextBox Margin="0,5,0,5" HorizontalAlignment="Stretch" BorderThickness="0" IsReadOnly="True" Background="Transparent" BorderBrush="Transparent" TextWrapping="Wrap">
+                            I'm powered by AI, so surprises and mistakes are possible. Make sure to verify any AI code or suggestions, and share feedback so that we can learn and improve. You can use the following prompts to ask questions:
+                        </TextBox>
+                        <TextBox Margin="0,5,0,5" HorizontalAlignment="Stretch" BorderThickness="0" IsReadOnly="True" Background="Transparent" BorderBrush="Transparent" TextWrapping="Wrap">
+                            1. what is the status of Package A upgrade
+                        </TextBox>
+                        <TextBox Margin="0,5,0,5" HorizontalAlignment="Stretch" BorderThickness="0" IsReadOnly="True" Background="Transparent" BorderBrush="Transparent" TextWrapping="Wrap">
+                            2. Write a xap conditional plugin
+                        </TextBox>
+                        <TextBox Margin="0,5,0,5" HorizontalAlignment="Stretch" BorderThickness="0" IsReadOnly="True" Background="Transparent" BorderBrush="Transparent" TextWrapping="Wrap">
+                            3. Find all the performance issues
+                        </TextBox>
+                    </StackPanel>
+                </Grid>
+            </Grid>
+        </ScrollViewer>
+
+        <Grid VerticalAlignment="Bottom">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"></ColumnDefinition>
+                <ColumnDefinition Width="Auto"></ColumnDefinition>
+            </Grid.ColumnDefinitions>
+            <TextBox Name="questionBox" Text="Please ask your questions here..." FontStyle="Italic" Foreground="Gray" LostFocus="questionBox_LostFocus" GotFocus="questionBox_GotFocus" HorizontalAlignment="Stretch" Margin="5" VerticalAlignment="Bottom" KeyUp="TextBox_KeyUp"></TextBox>
+            <Button Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Center" Width="20" Height="20" Margin="5" Content="X" Click="Button_Click"></Button>        
+        </Grid>
+    </Grid>
+</UserControl>
