@@ -6,7 +6,7 @@
 
     internal class Program
     {
-        private const string ConnectionString = "DefaultEndpointsProtocol=https;AccountName=xapinfoblobstorages;AccountKey=9SY6TvimyjmnuVXbTL7C0nn/mFQMphrdBft2gH7OLRocje448TzkcJwt8Bde/iotaBHvNH+DYseN+AStaEoyAw==;EndpointSuffix=core.windows.net";
+        private const string ConnectionString = "DefaultEndpointsProtocol=https;AccountName=xapinfoblobstorages;AccountKey=***please get from azure portal**;EndpointSuffix=core.windows.net";
         private const string ContainerName = "processednps";
         private const string ResultFolder = "D:\\Results";
 
