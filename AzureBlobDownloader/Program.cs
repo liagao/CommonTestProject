@@ -14,9 +14,10 @@
 
         static void Main(string[] args)
         {
+            File.WriteAllLines(@"D:\result4.txt", File.ReadAllLines(@"C:\Users\liagao\Desktop\1\1.txt").Where(o => o.Contains(", PATH=") && !o.Contains(", PATH=SEARCH")).ToList());
             //EnumerateDecompliedWorkflowPluginBlob();
 
-            string a = @"
+            /*string a = @"
 using System.Diagnostics;
 
 namespace CommonTestProject
@@ -92,7 +93,7 @@ namespace CommonTestProject
 
 ";
 
-            Console.WriteLine(Regex.Unescape(a));
+            Console.WriteLine(Regex.Unescape(a));*/
         }
 
         public static void EnumerateDecompliedWorkflowPluginBlob()

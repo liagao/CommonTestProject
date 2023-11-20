@@ -20,11 +20,7 @@
     using Microsoft.VisualStudio.Services.Common;
     using System.Linq;
     using System.Reflection;
-    using BenchmarkDotNet.Jobs;
-    using Microsoft.Extensions.Logging;
-    using Microsoft.VisualStudio.Services.Common.CommandLine;
-    using BenchmarkDotNet.Configs;
-    using Microsoft.TeamFoundation.WorkItemTracking.Client;
+    using System.Text.RegularExpressions;
 
     class Program
     {
@@ -35,8 +31,62 @@
         const int MaximumAuditWorkflowTimeStamp = 100;
         static void Main(string[] args)
         {
+            var machinelist = File.ReadAllLines(@"D:\2.txt");
+            var propertyList = File.ReadAllLines(@"D:\3.txt");
+
+            foreach(var item in machinelist)
+            {
+                foreach(var item2 in propertyList)
+                {
+                    if (item2.Contains("local") && item2.Contains(item))
+                    {
+                        Console.WriteLine(item2);
+                    }
+                }
+            }
+            
+            /*var uri = new UriBuilder("http", "http://ObjectStoreFD.INT.CO.bing-int.com:890");
+            Console.WriteLine(uri.Host);
+            Console.WriteLine(uri.Port);
+            Console.WriteLine(uri.Uri.IsDefaultPort);
+            //Console.WriteLine(string.IsNullOrEmpty("     "));
+            //Console.WriteLine(string.IsNullOrWhiteSpace(string.Empty));
+            //double d = double.NaN;
+            //Console.WriteLine(d>0);
+            File.WriteAllLines(@"D:\Traffic\bfpr1hourresult.txt",
+                File.ReadAllLines(@"D:\Traffic\bfpr1hour.txt").Select(line =>
+                {
+                    var sections = line.Split(' ');
+                    var traceId = "N/A";
+                    var trafficType = "N/A";
+                    var trafficPriority = "N/A";
+                    var path = "N/A";
+
+                    foreach(var item in sections)
+                    {
+                        if(item.StartsWith("traceID="))
+                        {
+                            traceId = item.Substring("traceID=".Length).Trim('"');
+                        }
+                        else if(item.StartsWith("TRAFFICTYPE="))
+                        {
+                            trafficType = item.Substring("TRAFFICTYPE=".Length).Trim(',');
+                        }
+                        else if(item.StartsWith("TRAFFICPRIORITY="))
+                        {
+                            trafficPriority = item.Substring("TRAFFICPRIORITY=".Length).Trim(',');
+                        }
+                        else if(item.StartsWith("PATH="))
+                        {
+                            path = item.Substring("PATH=".Length).Trim(',');
+                        }   
+                    }
+
+                    return $"{traceId}\t{trafficType}\t{trafficPriority}\t{path}";
+                }));*/
+            //TestRegex2();
             //TestStringSplitter();
-            TestGCConfig(int.Parse(args[0]), int.Parse(args[1]));
+            //TestGCConfig(int.Parse(args[0]), int.Parse(args[1]));
             //TestSplitter();
             //TestPluginConfig();
             //TestConcurrentQueue();
@@ -56,8 +106,18 @@
 
             //TestDictionaryCapacity();
             //TestDictionaryCopy();
+            //TestRegex2();
             Console.WriteLine("!!!");
             Console.ReadLine();
+        }
+
+        private static void TestRegex2()
+        {
+            string testString = @"i,06/14/2023 21:31:01,Common,DefaultTag,SrcFile="""" SrcFunc="""" SrcLine=""0"" Pid=""40340"" Tid=""36004"" TS=""0x01D99F423064BA40"" 
+String1=""TraceId:648a9404e18145acac6e312111956c94, ClientIP:10.241.218.136, Workflow:""Xap.BingFirstPageResults"", TrafficType:YAHOOPROD, TrafficPriority:1, IsSerp:False""";
+            var regex = new Regex("( Workflow:\"Xap\\.BingFirstPageResults\",| Workflow:123,| Workflow:456,)+.*?TrafficPriority:1");
+            var match = regex.Match(testString);
+            Console.WriteLine(match.Value);
         }
 
         private static void TestStringSplitter()
@@ -68,6 +128,7 @@
             foreach (var variable in secs)
             {
                 var index = variable.IndexOf(EnvironmentVariableNameValueSplitter);
+
                 var name = variable.Substring(0, index);
                 if (index < variable.Length - 1)
                 {

@@ -1,20 +1,38 @@
 ﻿namespace EnumBenchmarkDemo
 {
     using BenchmarkDotNet.Running;
+    using System;
+    using System.Collections.Concurrent;
 
     public class Program
     {
-        static bool[] testarray = { true, true, true, true, true, true, true, true, true };
         public static void Main(string[] args)
         {
-            Array.Clear(testarray);
+            //BenchmarkRunner.Run<ShuffuleBenchmarkTest>();
+            var dic = new ConcurrentDictionary<string, int>();
+            int loop = 1000;
+            while(loop-->0)
+            {
+                Console.WriteLine(loop);
+                ThreadPool.QueueUserWorkItem((o) =>
+                {
+                    var id = Thread.CurrentThread.Name;
+                    dic.AddOrUpdate(id.ToString(), 1, (key, value) => value + 1);
+                    Thread.Sleep(100);
+                });
+            }
 
-            Console.WriteLine(testarray[0]);
-            Console.WriteLine(testarray[7]);
-
-            //BenchmarkRunner.Run<LambdaBenchMarkTest>();
+            foreach(var item in dic)
+            {
+                Console.WriteLine(item.Key + "=>" + item.Value);
+            }
 
             Console.ReadLine();
+        }
+
+        private static ArraySegment<byte> GenerateNewSegment(byte[] bytes)
+        {
+            return new ArraySegment<byte>(bytes);
         }
     }
 }

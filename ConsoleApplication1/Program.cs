@@ -5,8 +5,10 @@
     using Microsoft.Online.Metrics.Serialization.Configuration;
     using System;
     using System.Collections.Generic;
+    using System.Globalization;
     using System.IO;
     using System.Linq;
+    using System.Threading;
 
     class Program
     {
@@ -27,10 +29,119 @@
 
         static void Main(string[] args)
         {
-            GenerateRegressedNodeList("JA-JP", "premium");
-            GenerateRegressedNodeList("EN-AU", "premium");
-            GenerateRegressedNodeList("EN-IN", "premium");
-            GenerateRegressedNodeList("ZH-CN", "premium");
+            //GenerateRegressedNodeList("JA-JP", "premium");
+            //GenerateRegressedNodeList("EN-AU", "premium");
+            //GenerateRegressedNodeList("EN-IN", "premium");
+            //GenerateRegressedNodeList("ZH-CN", "premium");
+            var format = @"https://portal.microsoftgeneva.com/dashboard/BingPlat_XAP/XAP%2520DRI/Flight%2520Shipment?overrides=[{{""query"":""//*[id='Workflow']"",""key"":""value"",""replacement"":""{0}""}},{{""query"":""//*[id='Flight']"",""key"":""value"",""replacement"":""{1}""}},{{""query"":""//*[id='Flight']"",""key"":""value"",""replacement"":""""}},{{""query"":""//*[id='EnvironmentName']"",""key"":""value"",""replacement"":""{2}""}}]%20";
+
+
+            var startTimeFormat = "yyyy-MM-dd HH:mm:ss";
+            var startTime = "2023-09-02T00:00:00Z";
+            var endTime = "2023-09-02T16:00:00Z";
+            Console.WriteLine(string.Format(format, "Xap.BingFirstPageResult", string.Join(",", GetMdmCounterValue(
+                                                "Xap-Prod-CO4", 
+                                                null, 
+                                                DateTime.ParseExact(startTime, "yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal).ToUniversalTime(),
+                                                DateTime.ParseExact(endTime, "yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal).ToUniversalTime())), "Xap-Prod-CO4"));
+            Console.ReadLine();
+        }
+
+        private static List<string> GetMdmCounterValue(string environmentName, string workflowName, DateTime? startTime, DateTime? endTime)
+        {
+            var startResultList = new List<string>();
+            var endResultList = new List<string>();
+
+            MetricReader reader;
+
+            try
+            {
+                reader = new MetricReader(ConnectionInfo);
+            }
+            catch (Exception ex)
+            {
+                throw ex;
+            }
+
+            var dimensionFilters = new List<DimensionFilter>();
+
+            if (!string.IsNullOrWhiteSpace(environmentName))
+            {
+                dimensionFilters.Add(DimensionFilter.CreateIncludeFilter("EnvironmentName", environmentName));
+            }
+
+            if (!string.IsNullOrWhiteSpace(workflowName))
+            {
+                dimensionFilters.Add(DimensionFilter.CreateIncludeFilter("Workflow", workflowName));
+            }
+
+            dimensionFilters.Add(DimensionFilter.CreateIncludeFilter("Flight"));
+
+            var mdmCounter = new MetricIdentifier("BingPlat_XAP", "AppHost.Workflow", "All Flights Latency");
+            var samplingType = SamplingType.Count;
+
+            if (startTime != null)
+            {
+                var value = reader.GetTimeSeriesAsync(
+                    mdmCounter,
+                    dimensionFilters,
+                    startTime.Value.AddMinutes(-60),
+                    startTime.Value.AddMinutes(60),
+                    new[]
+                    {
+                        samplingType
+                    });
+
+                foreach (var item in value.Result.Results)
+                {
+                    double first = item.GetTimeSeriesValues(samplingType).First();
+                    double last = item.GetTimeSeriesValues(samplingType).Last();
+                    if ((first == 0 || double.IsNaN(first)) && last > 0)
+                    {
+                        startResultList.Add(item.DimensionList.First(o => o.Key == "Flight").Value);
+                    }
+                }
+            }
+
+            if (endTime != null)
+            {
+                var value = reader.GetTimeSeriesAsync(
+                    mdmCounter,
+                    dimensionFilters,
+                    endTime.Value.AddMinutes(-60),
+                    endTime.Value.AddMinutes(60),
+                    new[]
+                    {
+                        samplingType
+                    });
+
+                foreach (var item in value.Result.Results)
+                {
+                    double first = item.GetTimeSeriesValues(samplingType).First();
+                    double last = item.GetTimeSeriesValues(samplingType).Last();
+                    if ((last == 0 || double.IsNaN(last)) && first > 0)
+                    {
+                        endResultList.Add(item.DimensionList.First(o => o.Key == "Flight").Value);
+                    }
+                }
+            }
+
+            if (startTime == null && endTime != null)
+            {
+                return endResultList;
+            }
+
+            if (endTime == null && startTime != null)
+            {
+                return startResultList;
+            }
+
+            if (startTime != null && endTime != null)
+            {
+                return startResultList.Intersect(endResultList).ToList();
+            }
+
+            return new List<string>();
         }
 
         private static void GenerateRegressedNodeList(string market, string isPreminumQoR)

@@ -120,7 +120,20 @@
 
         static void Main(string[] args)
         {
-            FindAllNotMigratedFileFromexperimentFolder(ComponentDir, "result-badconfig.txt", (path) => FindAllNotMigratedPluginConfigFilesForEnvAlias(path));
+            List<string> result = new List<string>(10000000);
+            //FindAllNotMigratedFileFromexperimentFolder(ComponentDir, "result-badconfig.txt", (path) => FindAllNotMigratedPluginConfigFilesForEnvAlias(path));
+            Parallel.ForEach(Directory.GetFiles(@"D:\OV\RCache\Ini"), file =>
+            {
+                foreach(var line in File.ReadAllLines(file))
+                {
+                    if(line.Contains("xap-prod-hk--group", StringComparison.OrdinalIgnoreCase) && line.Contains("bing.prod.dlis.binginternal.com"))
+                    {
+                        result.Add($"{file}\t{line}");
+                    }
+                }
+            });
+
+            File.WriteAllLines(@"D:\result-dlis.txt", result);
         }
 
         private static void FindAllNotMigratedFileFromexperimentFolder(string expPath, string resultFileName, Func<string, Dictionary<string, string>> func)

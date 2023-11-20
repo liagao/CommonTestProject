@@ -1,9 +1,9 @@
 ﻿namespace KustoDGrepConnect
 {
-    using Microsoft.Azure.Management.Kusto;
+    /*using Microsoft.Azure.Management.Kusto;
     using Microsoft.Rest.Azure;
     using Microsoft.Rest.Azure.Authentication;
-    using Newtonsoft.Json.Linq;
+    using Newtonsoft.Json.Linq;*/
     using System;
     using System.Net.Http;
     using System.Threading;
@@ -83,7 +83,7 @@
                 }
             }
 
-            bool isScrubbed = false; // set to false if you want the data to be not scrubbed
+            /*bool isScrubbed = false; // set to false if you want the data to be not scrubbed
             var serviceCreds = ApplicationTokenProvider.LoginSilentAsync(
                 tenantId,
                 clientId,
@@ -137,7 +137,7 @@
                         customHeaders: null,
                         default(CancellationToken)).Result;
                 }
-            }
+            }*/
         }
 
         private static void ShowHelp()
