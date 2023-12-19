@@ -120,22 +120,50 @@
 
         static void Main(string[] args)
         {
-            List<string> result = new List<string>(10000000);
+            Dictionary<string, string> result = new Dictionary<string, string>(10000000);
+            Dictionary<string, string> configHashMap = new Dictionary<string, string>(10000000);
+            Dictionary<string, string> finalresult = new Dictionary<string, string>(10000000);
             //FindAllNotMigratedFileFromexperimentFolder(ComponentDir, "result-badconfig.txt", (path) => FindAllNotMigratedPluginConfigFilesForEnvAlias(path));
             Parallel.ForEach(Directory.GetFiles(@"D:\OV\RCache\Ini"), file =>
             {
                 foreach(var line in File.ReadAllLines(file))
                 {
-                    if(line.Contains("xap-prod-hk--group", StringComparison.OrdinalIgnoreCase) && line.Contains("bing.prod.dlis.binginternal.com"))
+                    if(line.Contains("xap-prod-hk--group", StringComparison.OrdinalIgnoreCase) && line.Contains("tc-urpvip", StringComparison.OrdinalIgnoreCase))
                     {
-                        result.Add($"{file}\t{line}");
+                        result.Add(file, line);
                     }
                 }
             });
 
-            File.WriteAllLines(@"D:\result-dlis.txt", result);
-        }
+            foreach(var file in File.ReadAllLines(@"D:\OV\exp.resource.hardlink.manifest"))
+            {
+                string[] parts = file.Split(',');
+                
+                if(parts.Length == 2)
+                {
+                    if(parts[1].StartsWith("ini"))
+                    {
+                        var key = parts[1].Split('\\')[1];
+                        if (!configHashMap.ContainsKey(key))
+                        {
+                            configHashMap.Add(key, parts[0]);
+                        }
+                    }
+                }
+            }
 
+            foreach(var item in result)
+            {
+                var key = Path.GetFileName(item.Key);
+                if (!finalresult.ContainsKey(configHashMap[key]))
+                {
+                    finalresult.Add(configHashMap[key], item.Value);
+                }
+            }
+
+
+            File.WriteAllLines(@"D:\result-urpvip.txt", finalresult.Select(o => $"{o.Key}\t{o.Value}"));finalresult.Select(o => $"{o.Key}\t{o.Value}");
+        }
         private static void FindAllNotMigratedFileFromexperimentFolder(string expPath, string resultFileName, Func<string, Dictionary<string, string>> func)
         {
             var alivePackages = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -347,11 +375,11 @@
 
                 Parallel.ForEach(listContent, line =>
                 {
-                    /*if(line.Contains("flt"))
+                    if (line.Contains("xap-prod-hk--group", StringComparison.OrdinalIgnoreCase) && line.Contains("tc-urpvip", StringComparison.OrdinalIgnoreCase))
                     {
-                        Cons*/
-
-                    if (line.Contains("Host=hk2.platformcn.maps.glbdns2.microsoft.com", StringComparison.OrdinalIgnoreCase))
+                        lines.Add(line);
+                    }
+                    /*if (line.Contains("Host=hk2.platformcn.maps.glbdns2.microsoft.com", StringComparison.OrdinalIgnoreCase))
                     {
                         lock(lines)
                         {
@@ -382,7 +410,7 @@
                                 }
                             }
                         }
-                    }
+                    }*/
                 });
 
                 if (lines.Any())

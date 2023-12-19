@@ -21,6 +21,8 @@
     using System.Linq;
     using System.Reflection;
     using System.Text.RegularExpressions;
+    using System.Web;
+    using System.Net.Http;
 
     class Program
     {
@@ -31,7 +33,9 @@
         const int MaximumAuditWorkflowTimeStamp = 100;
         static void Main(string[] args)
         {
-            var machinelist = File.ReadAllLines(@"D:\2.txt");
+            var memoryStream = new MemoryStream();
+
+            /*var machinelist = File.ReadAllLines(@"D:\2.txt");
             var propertyList = File.ReadAllLines(@"D:\3.txt");
 
             foreach(var item in machinelist)
@@ -43,8 +47,8 @@
                         Console.WriteLine(item2);
                     }
                 }
-            }
-            
+            }*/
+
             /*var uri = new UriBuilder("http", "http://ObjectStoreFD.INT.CO.bing-int.com:890");
             Console.WriteLine(uri.Host);
             Console.WriteLine(uri.Port);

@@ -1,6 +1,8 @@
 ﻿namespace DiskIOBenchmark
 {
     using System.Diagnostics;
+    using System.Reflection;
+
     class Program
     {
         static void Main(string[] args)
@@ -12,10 +14,20 @@
             sw.Start();
             Parallel.ForEach(Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories), file =>
             {
-                summary.Add(file, File.ReadAllBytes(file).Length/1000);
+                try
+                {
+                    Assembly.LoadFile(file);
+                }
+                catch 
+                {
+                    summary.Add(file, 0);
+                    return; 
+                }
+
+                summary.Add(file, 1);
             });
             sw.Stop();
-            Console.WriteLine($"Total files: {summary.Count}, total read: {summary.Values.Sum()} KB, time elapsed: {sw.Elapsed.TotalSeconds} sec");
+            Console.WriteLine($"Total dlls: {summary.Count}, total succeed: {summary.Values.Sum()}, time elapsed: {sw.Elapsed.TotalSeconds} sec");
         }
     }
 }
