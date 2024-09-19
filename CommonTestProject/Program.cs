@@ -33,8 +33,8 @@
         const int MaximumAuditWorkflowTimeStamp = 100;
         static void Main(string[] args)
         {
-            var memoryStream = new MemoryStream();
-
+            string ss = "{{}}\"{0}";
+            Console.WriteLine(string.Format(ss, "123"));
             /*var machinelist = File.ReadAllLines(@"D:\2.txt");
             var propertyList = File.ReadAllLines(@"D:\3.txt");
 
@@ -111,7 +111,6 @@
             //TestDictionaryCapacity();
             //TestDictionaryCopy();
             //TestRegex2();
-            Console.WriteLine("!!!");
             Console.ReadLine();
         }
 
