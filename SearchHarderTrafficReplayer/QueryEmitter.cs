@@ -7,9 +7,13 @@ namespace SearchHarderTrafficReplayer
         private readonly string endpointURL;
         private readonly List<StringContent> requestBodyList;
         private readonly int interval;
-        private readonly int runInHours;
+        private readonly int runInSeconds;
+        private readonly string logFolder;
+        private readonly string resultSuffix;
+        private readonly bool runoneround;
+        private readonly bool recordStatistic;
 
-        public QueryEmitter(string endpointURL, List<StringContent> requestBodyList, int interval, int runInHours)
+        public QueryEmitter(string endpointURL, List<StringContent> requestBodyList, int interval, int runInSeconds, string logFolder, string resultSuffix, bool runoneround, bool recordStatistic)
         {
             if(string.IsNullOrWhiteSpace(endpointURL))
             {
@@ -26,34 +30,56 @@ namespace SearchHarderTrafficReplayer
                 throw new ArgumentOutOfRangeException("interval can't be negtive!");
             }
 
-            if (runInHours <= 0)
+            if (runInSeconds <= 0)
             {
-                throw new ArgumentOutOfRangeException("runInHours can't be negtive!");
+                throw new ArgumentOutOfRangeException("runInSeconds can't be negtive!");
             }
 
             this.endpointURL = endpointURL;
             this.requestBodyList = requestBodyList;
             this.interval = interval;
-            this.runInHours = runInHours;
+            this.runInSeconds = runInSeconds;
+            this.logFolder = logFolder;
+            this.resultSuffix = resultSuffix;
+            this.runoneround = runoneround;
+            this.recordStatistic = recordStatistic;
         }
 
         public void Start()
         {
             Stopwatch sw = Stopwatch.StartNew();
+            Stopwatch swforquery = Stopwatch.StartNew();
             var client = new HttpClient();
 
-            while (sw.Elapsed.TotalHours < runInHours)
+            while (sw.Elapsed.TotalSeconds < runInSeconds)
             {
-                foreach (var request in requestBodyList)
+                for (int i = 0; i < requestBodyList.Count; i++)
                 {
-                    var res = client.PostAsync(endpointURL, request);
+                    swforquery.Restart();
+                    var response = client.PostAsync(endpointURL, requestBodyList[i]);
+
+                    if(recordStatistic)
+                    {
+                        var res = response.Result;
+                        var queryid = res.Headers.GetValues("X-XAP-QueryId")?.FirstOrDefault(); 
+                        var message = res.Content.ReadAsStringAsync().Result;
+
+                        File.AppendAllLines(Path.Combine(this.logFolder, $"{resultSuffix}.txt"), new[] { $"{i}\t{swforquery.ElapsedMilliseconds}\t{queryid}\t{message.Length}" });
+                        File.WriteAllText(Path.Combine(this.logFolder, $"{i}-{resultSuffix}-response.txt"), message);
+
+                        Console.WriteLine($"[{DateTime.Now}] Finished run the {i} query of {resultSuffix}...");
+                    }
+
                     Thread.Sleep(interval);
                 }
 
-                Console.WriteLine($"[{DateTime.Now}] Finished current round of qury emit to {endpointURL}...");
-            }
+                Console.WriteLine($"[{DateTime.Now}] Finished run {this.resultSuffix} in {sw.Elapsed.TotalSeconds} seconds...");
 
-            Console.WriteLine($"[{DateTime.Now}] Finished run in {runInHours} hours...");
+                if(this.runoneround)
+                {
+                    break;
+                }
+            }
         }
     }
 }
