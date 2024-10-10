@@ -53,7 +53,9 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DiskIOBenchmark", "DiskIOBe
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GenerateAllRegressedNodes", "GenerateAllRegressedNodes\GenerateAllRegressedNodes.csproj", "{09DF19FC-74F6-4126-8B1C-DF4CB9AD8E6A}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SearchHarderTrafficReplayer", "SearchHarderTrafficReplayer\SearchHarderTrafficReplayer.csproj", "{B85A1F4E-5F2C-4912-AD07-D183360FBDA6}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SearchHarderTrafficReplayer", "SearchHarderTrafficReplayer\SearchHarderTrafficReplayer.csproj", "{B85A1F4E-5F2C-4912-AD07-D183360FBDA6}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestProject1", "TestProject1\TestProject1.csproj", "{711008A3-681F-4084-BFCF-CCBEF457B43A}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -377,6 +379,18 @@ Global
 		{B85A1F4E-5F2C-4912-AD07-D183360FBDA6}.Release|x64.Build.0 = Release|Any CPU
 		{B85A1F4E-5F2C-4912-AD07-D183360FBDA6}.Release|x86.ActiveCfg = Release|Any CPU
 		{B85A1F4E-5F2C-4912-AD07-D183360FBDA6}.Release|x86.Build.0 = Release|Any CPU
+		{711008A3-681F-4084-BFCF-CCBEF457B43A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{711008A3-681F-4084-BFCF-CCBEF457B43A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{711008A3-681F-4084-BFCF-CCBEF457B43A}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{711008A3-681F-4084-BFCF-CCBEF457B43A}.Debug|x64.Build.0 = Debug|Any CPU
+		{711008A3-681F-4084-BFCF-CCBEF457B43A}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{711008A3-681F-4084-BFCF-CCBEF457B43A}.Debug|x86.Build.0 = Debug|Any CPU
+		{711008A3-681F-4084-BFCF-CCBEF457B43A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{711008A3-681F-4084-BFCF-CCBEF457B43A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{711008A3-681F-4084-BFCF-CCBEF457B43A}.Release|x64.ActiveCfg = Release|Any CPU
+		{711008A3-681F-4084-BFCF-CCBEF457B43A}.Release|x64.Build.0 = Release|Any CPU
+		{711008A3-681F-4084-BFCF-CCBEF457B43A}.Release|x86.ActiveCfg = Release|Any CPU
+		{711008A3-681F-4084-BFCF-CCBEF457B43A}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

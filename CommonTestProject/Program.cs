@@ -33,8 +33,29 @@
         const int MaximumAuditWorkflowTimeStamp = 100;
         static void Main(string[] args)
         {
-            string ss = "{{}}\"{0}";
-            Console.WriteLine(string.Format(ss, "123"));
+            var set = new HashSet<string>(1000);
+            foreach(var file in Directory.GetFiles("*.txt"))
+            {
+                foreach(var line in File.ReadAllLines(file))
+                {
+                    if(line.Contains("\"Xap.BingFirstPageResults\""))
+                    {
+                        var queryid = line.Substring(line.IndexOf('(') + 1, 32);
+                        set.Add(queryid);
+                    }
+
+                    if(line.Contains("queryflags=2"))
+                    {
+                        var queryid = line.Substring(line.IndexOf('(') + 1, 32);
+                        if(set.Contains(queryid))
+                        {
+                            Console.WriteLine(queryid);
+                        }
+                    }
+                }
+            }
+
+            Console.ReadLine();
             /*var machinelist = File.ReadAllLines(@"D:\2.txt");
             var propertyList = File.ReadAllLines(@"D:\3.txt");
 

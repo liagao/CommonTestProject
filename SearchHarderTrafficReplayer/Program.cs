@@ -5,11 +5,13 @@
 
     internal class Program
     {
+        private static string SHTestEndpoint = "https://fabricrouter-external.falcon-core.ingress.kors.microsoft-falcon.net/xap-experiments.llmapps/SearchHarder";
+
         private static string SHNativeEndpoint = "https://fabricrouter-external.falcon-core.ingress.wus2.microsoft-falcon.net/xap-experiments.xaplangtool-searchhardernative/SearchHarder";
         private static string SHLangToolsEndpoint = "https://fabricrouter-external.falcon-core.ingress.wus2.microsoft-falcon.net/xap-experiments.xaplangtool-searchharder/SearchHarder";
         private static string SHNativePerfTestEndpoint = "https://fabricrouter-external.falcon-core.ingress.wus2.microsoft-falcon.net/xap-experiments.xaplangtool-searchhardernativenat2/SearchHarder";
         private static string SHLangToolsPerfTestEndpoint = "https://fabricrouter-external.falcon-core.ingress.wus2.microsoft-falcon.net/xap-experiments.xaplangtool-searchharder2/SearchHarder";
-        static string QuerySetFileName = "queryset.tsv";
+        private static string QuerySetFileName = "queryset.tsv";
         private static int QPS = 1;
         private static int RunInSeconds = 60*60;
         private static string MessageTemplate = "{{\"timestamp\":\"{0}\",\"messageType\":\"SearchHarder\",\"locationHints\":[{{\"SourceType\":2,\"CountryName\":\"{1}\",\"Admin1Name\":\"{2}\",\"PopulatedPlaceName\":\"{3}\",\"Center\":{{\"latitude\":{4},\"longitude\":{5}}},\"Name\":\"{6}\",\"RegionType\":2}}],\"privacy\":\"Internal\",\"text\":\"{7}\",\"locale\":\"{8}\",\"localeInfo\":{{\"trueuilanguage\":\"{9}\",\"language\":\"{10}\",\"region\":\"{11}\",\"market\":\"{12}\",\"truemarket\":\"{13}\",\"uilanguage\":\"{14}\"}},\"locationInfo\":{{\"country\":\"{15}\",\"state\":\"{16}\",\"city\":\"{17}\",\"sourceType\":1,\"isImplicitLocationIntent\":false}},\"market\":\"{18}\",\"region\":\"{19}\",\"searchHarderCacheKey\":\"{20}\"}}, \"optionsSets\": [\"searchharder\",\"shbindebug\"], \"options\": {{\"BingFirstPageWorkflowVariants\":{{\"mkt\":\"{21}\",\"shmuid\":\"bgm\",\"revip\":\"{22}\"}}}}, \"bingFirstPageAdultFilter\": \"2\", \"conversationId\": \"{23}\", \"RequestId\": \"{24}\", \"traceId\": \"{25}\" }}";
@@ -39,9 +41,12 @@
                 index++;
             }
 
-            Task.Run(() => new QueryEmitter(SHNativePerfTestEndpoint, shnativeMessageList, 1000 / QPS, RunInSeconds, LogFolder, SHNativeSuffix, runoneround: true, recordStatistic: true).Start());
-            Task.Run(() => new QueryEmitter(SHLangToolsEndpoint, shlangtoolsMessageList, 1000 / QPS, RunInSeconds, LogFolder, SHLangToolsNativeSuffix, runoneround: true, recordStatistic: true).Start());
+            // 1. For perf test 
+            //Task.Run(() => new QueryEmitter(SHNativePerfTestEndpoint, shnativeMessageList, 1000 / QPS, RunInSeconds, LogFolder, SHNativeSuffix, runoneround: true, recordStatistic: true).Start());
+            //Task.Run(() => new QueryEmitter(SHLangToolsEndpoint, shlangtoolsMessageList, 1000 / QPS, RunInSeconds, LogFolder, SHLangToolsNativeSuffix, runoneround: true, recordStatistic: true).Start());
 
+            // 2. For single endpoint test
+            Task.Run(() => new QueryEmitter(SHTestEndpoint, shnativeMessageList, 1000 / QPS, RunInSeconds, LogFolder, SHNativeSuffix, runoneround: true, recordStatistic: true).Start());
             Console.ReadLine();
         }
 
