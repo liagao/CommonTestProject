@@ -31,9 +31,35 @@
         private const char EnvironmentVariableNameValueSplitter = ':';
         private const char EnvironmentVariableValueSplitter = ';';
         const int MaximumAuditWorkflowTimeStamp = 100;
+
         static void Main(string[] args)
         {
-            var set = new HashSet<string>(1000);
+            //var sec = File.ReadAllLines(@"D:\resultallbfpr2.txt")[1].Split('"', '=', ' ');
+
+            /*var hashset = new HashSet<string>(File.ReadAllLines(@"D:\coreuxip.txt")); 
+            
+            var allBFPRList = new List<string>(400000);
+            var nonSnRBFPRList = new List<string>(3000);
+
+            foreach(var line in File.ReadAllLines(@"D:\BFPR-20250210-1453-CST.txt"))
+            {
+                if (line.Contains("QueryResponseSendCompleteForQueryDebugLog"))
+                {
+                    var columns = line.Split('"', '=', ' ');
+                    allBFPRList.Add($"{columns[6]}\t{columns[46]}\t{columns[58]}");
+                    if(!hashset.Contains(columns[46]))
+                    {
+                        nonSnRBFPRList.Add($"{columns[6]}\t{columns[46]}\t{columns[58]}");
+                    }
+                }
+            }
+
+            File.WriteAllLines(@"D:\AllBFPRTraffic0212.txt", allBFPRList);
+
+            File.WriteAllLines(@"D:\NotInSnRTraffic0212.txt", nonSnRBFPRList);*/
+            
+            
+            /*var set = new HashSet<string>(1000);
             foreach(var file in Directory.GetFiles("*.txt"))
             {
                 foreach(var line in File.ReadAllLines(file))
@@ -53,8 +79,8 @@
                         }
                     }
                 }
-            }
-
+            }*/
+            Console.WriteLine("!");
             Console.ReadLine();
             /*var machinelist = File.ReadAllLines(@"D:\2.txt");
             var propertyList = File.ReadAllLines(@"D:\3.txt");

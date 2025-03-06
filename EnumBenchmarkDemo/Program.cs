@@ -8,7 +8,7 @@
     {
         public static void Main(string[] args)
         {
-            BenchmarkRunner.Run<UnmanagedHeapAllocatorBenchmark>();
+            BenchmarkRunner.Run<CommonBenchmarkTest>();
 
             Console.ReadLine();
         }
