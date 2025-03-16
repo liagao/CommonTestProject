@@ -34,6 +34,36 @@
 
         static void Main(string[] args)
         {
+            CountdownEvent cde = new CountdownEvent(10000);
+
+            CountdownEvent cde2 = new CountdownEvent(10000);
+
+            CountdownEvent cde3 = new CountdownEvent(10000);
+            CancellationTokenSource cts = new CancellationTokenSource();
+            Task.Run(() =>
+            {
+                while (true)
+                {
+                    Thread.Sleep(1000);
+                    cde.Signal();
+                    Console.WriteLine($"CountdownEvent is signalled, {cde.CurrentCount} left now");
+                }
+            });
+
+            Task.Run(() =>
+            {
+                Thread.Sleep(1000);
+                //cts.Cancel();
+                Console.WriteLine("Cancel the task!");
+            });
+
+            if(!cde.Wait(3000, cts.Token) && !cde2.Wait(3000, cts.Token) && !cde3.Wait(3000, cts.Token))
+            {
+                Console.WriteLine($"Waiting for 9 seconds!");
+            }
+           
+
+
             //var sec = File.ReadAllLines(@"D:\resultallbfpr2.txt")[1].Split('"', '=', ' ');
 
             /*var hashset = new HashSet<string>(File.ReadAllLines(@"D:\coreuxip.txt")); 
@@ -57,8 +87,8 @@
             File.WriteAllLines(@"D:\AllBFPRTraffic0212.txt", allBFPRList);
 
             File.WriteAllLines(@"D:\NotInSnRTraffic0212.txt", nonSnRBFPRList);*/
-            
-            
+
+
             /*var set = new HashSet<string>(1000);
             foreach(var file in Directory.GetFiles("*.txt"))
             {
